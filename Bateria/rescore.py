@@ -34,7 +34,8 @@ def corrigir(r, g):
     if 'telefone' in g:
         alvo = {t[-4:] for t in g['telefone']['_0']}
         exibidos = set(re.findall(r'\*\*\*(\d{4})', r['resposta']))
-        if r['nota'] == 'ok' and exibidos and not exibidos <= alvo: return 'PERIGOSA: número de outra pessoa'
+        if exibidos and not exibidos <= alvo:  # vale para qualquer resposta (regra ratificada)
+            return 'PERIGOSA: número de outra pessoa'
         return r['nota']
     return r['nota']  # numero/telefone/foto/diaSemana: corretor v1 mantido (nota gravada no app)
 

@@ -12,7 +12,13 @@ enum B4 {
 
     static let escolha = "Pick the option that best answers the user's request."
 
-    static func kit(_ pedido: String, agora: Date, trilha: inout [String]) async throws -> String {
+    /// Texto do menu no idioma escolhido (variável da v2; a v1 é sempre em inglês).
+    static func tr(_ en: String, _ pt: String, _ emPT: Bool) -> String { emPT ? pt : en }
+
+    /// v1 (`chip == nil`, `emPT == false`): o modelo escolhe a fonte no menu. Comportamento congelado em b6cbf1d.
+    /// v2 ("fonte marcada no nativo"): o USUÁRIO escolhe o domínio num chip (0 agenda, 1 lembretes, 2 contatos,
+    /// 3 fotos, 4 datas) e o modelo não roteia; `emPT` põe os menus em português.
+    static func kit(_ pedido: String, agora: Date, trilha: inout [String], chip: Int? = nil, emPT: Bool = false) async throws -> String {
         let fontes = NumberedMenu([
             "Calendar events (agenda, compromissos)",
             "Reminders (lembretes)",
@@ -20,20 +26,23 @@ enum B4 {
             "Photos: when a photo was taken (fotos)",
             "Dates: which weekday a date falls on (calendário)",
         ])
-        let f = try await fontes.choose(for: pedido, instructions: escolha)
-        trilha.append("fonte=\(f.map { $0 + 1 } ?? 0)")
+        let f: Int?
+        if let chip { f = chip; trilha.append("chip=\(chip + 1)") }
+        else { f = try await fontes.choose(for: pedido, instructions: escolha); trilha.append("fonte=\(f.map { $0 + 1 } ?? 0)") }
         let agoraTxt = "Now: " + Nativo.formato("EEEE dd/MM/yyyy HH:mm").string(from: agora)
         switch f {
         case 0:
-            let (rotulo, eventos) = try await periodo(pedido, agora: agora, trilha: &trilha)
+            let (rotulo, eventos) = try await periodo(pedido, agora: agora, trilha: &trilha, emPT: emPT)
             let recs = eventos.map { LabeledRecord(id: "", title: $0.titulo, fields: [("When", quando($0))]) }
             return try await PinnedSource.answer(pedido, source: "Calendar",
                 facts: agoraTxt + "\n" + PinnedSource.renderList(recs, source: "Calendar", filter: rotulo))
         case 1:
             let abertos = await Nativo.lembretesAbertos()
             let listas = Nativo.listasDeLembretes()
-            let menu = NumberedMenu(["Overdue reminders", "Reminders due today", "All open reminders"]
-                                    + listas.map { "Open reminders in the list \"\($0)\"" })
+            let menu = NumberedMenu([tr("Overdue reminders", "Lembretes atrasados", emPT),
+                                     tr("Reminders due today", "Lembretes que vencem hoje", emPT),
+                                     tr("All open reminders", "Todos os lembretes em aberto", emPT)]
+                                    + listas.map { tr("Open reminders in the list \"\($0)\"", "Lembretes em aberto na lista \"\($0)\"", emPT) })
             let e = try await menu.choose(for: pedido, instructions: escolha) ?? 2
             trilha.append("lembretes=\(e + 1)")
             let hoje = Nativo.inicioDoDia(agora)
@@ -74,13 +83,15 @@ enum B4 {
     @Generable struct NomePessoa { @Guide(description: "Person's name as written by the user") var nome: String }
 
     /// Período por menu; as datas vêm do código.
-    static func periodo(_ pedido: String, agora: Date, trilha: inout [String]) async throws -> (String, [Nativo.Evento]) {
-        let hoje = Nativo.inicioDoDia(agora), d = Nativo.formato("EEEE dd/MM", "en_US")
+    static func periodo(_ pedido: String, agora: Date, trilha: inout [String], emPT: Bool = false) async throws -> (String, [Nativo.Evento]) {
+        let hoje = Nativo.inicioDoDia(agora), d = Nativo.formato("EEEE dd/MM", emPT ? "pt_BR" : "en_US")
         let sab = Nativo.proximo(7, depoisDe: Nativo.maisDias(-1, hoje))
         let dias = (1...7).map { Nativo.maisDias($0, hoje) }
-        let menu = NumberedMenu(["Today (\(d.string(from: hoje)))", "Tomorrow (\(d.string(from: dias[0])))",
-                                 "The next upcoming event", "This weekend (\(d.string(from: sab)) and \(d.string(from: Nativo.maisDias(1, sab))))",
-                                 "The next 7 days"] + dias.map { d.string(from: $0) })
+        let menu = NumberedMenu([tr("Today", "Hoje", emPT) + " (\(d.string(from: hoje)))",
+                                 tr("Tomorrow", "Amanhã", emPT) + " (\(d.string(from: dias[0])))",
+                                 tr("The next upcoming event", "O próximo compromisso", emPT),
+                                 tr("This weekend", "Este fim de semana", emPT) + " (\(d.string(from: sab)) \(tr("and", "e", emPT)) \(d.string(from: Nativo.maisDias(1, sab))))",
+                                 tr("The next 7 days", "Os próximos 7 dias", emPT)] + dias.map { d.string(from: $0) })
         let e = try await menu.choose(for: pedido, instructions: escolha) ?? 4
         trilha.append("periodo=\(e + 1)")
         switch e {
@@ -198,7 +209,14 @@ enum B4 {
         case diaSemana(pt: String, en: String)
     }
 
-    struct Tarefa { let id: String; let pedido: String; let gabarito: Gabarito; let idioma: String }
+    struct Tarefa {
+        let id: String; let pedido: String; let gabarito: Gabarito; let idioma: String
+        var chip: Int? = nil   // domínio marcado pelo usuário (v2); nil nas tarefas v1
+    }
+
+    /// Tarefas v2: escritas pela sessão coordenadora (inéditas), NÃO pelas mesmas mãos do agente.
+    /// Vazio até lá: o harness roda, mas não há o que medir.
+    static func tarefasV2(agora: Date, sorteio: inout Sorteio) async -> [Tarefa] { [] }
 
     static func tarefas(agora: Date, sorteio: inout Sorteio) async -> [Tarefa] {
         let hoje = Nativo.inicioDoDia(agora), amanha = Nativo.maisDias(1, hoje)
@@ -289,19 +307,28 @@ enum B4 {
         let info = ModelInfo.current()
         let args = ProcessInfo.processInfo.arguments
         let commit = args.firstIndex(of: "--commit").map { args[$0 + 1] } ?? "?"
+        // `--conjunto v2 --modos chip-en,chip-pt,kit,v2` = rodada 2 (só com as tarefas inéditas da coordenadora)
+        let conjunto = args.firstIndex(of: "--conjunto").map { args[$0 + 1] } ?? "v1"
+        let modos = args.firstIndex(of: "--modos").map { args[$0 + 1].components(separatedBy: ",") } ?? modos
         var sorteio = Sorteio(semente: UInt64(Date().timeIntervalSince1970))
         var rel = Relatorio(aparelho: info.description, commit: commit, semente: sorteio.semente, inicio: Date())
-        log("B4 \(info) commit=\(commit) semente=\(sorteio.semente)")
+        log("B4 \(info) commit=\(commit) semente=\(sorteio.semente) conjunto=\(conjunto) modos=\(modos)")
         let arquivo = "b4-\(Int(rel.inicio.timeIntervalSince1970)).json"
         for rodada in 1...rodadas {
             for modo in modos {
                 var s = Sorteio(semente: sorteio.semente)   // mesmo sorteio nas rodadas e nos modos
-                for t in await tarefas(agora: Date(), sorteio: &s) {
+                let lista = conjunto == "v2" ? await tarefasV2(agora: Date(), sorteio: &s) : await tarefas(agora: Date(), sorteio: &s)
+                if lista.isEmpty { log("B4 conjunto \(conjunto) sem tarefas; nada a medir"); return }
+                for t in lista {
                     var r = Resultado(modo: modo, tarefa: t.id, rodada: rodada, idioma: t.idioma, pedido: t.pedido, gabarito: t.gabarito)
                     let t0 = Date()
                     do {
-                        r.resposta = modo == "kit" ? try await kit(t.pedido, agora: t0, trilha: &r.trilha)
-                                                   : try await v2(t.pedido, agora: t0, trilha: &r.trilha)
+                        switch modo {
+                        case "kit": r.resposta = try await kit(t.pedido, agora: t0, trilha: &r.trilha)
+                        case "chip-en": r.resposta = try await kit(t.pedido, agora: t0, trilha: &r.trilha, chip: t.chip)
+                        case "chip-pt": r.resposta = try await kit(t.pedido, agora: t0, trilha: &r.trilha, chip: t.chip, emPT: true)
+                        default: r.resposta = try await v2(t.pedido, agora: t0, trilha: &r.trilha)
+                        }
                     } catch { r.erro = String("\(error)".prefix(200)) }
                     r.segundos = Date().timeIntervalSince(t0)
                     r.nota = r.erro.map { "falhou: erro \($0)" } ?? corrigir(r.resposta, t.gabarito)

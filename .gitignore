@@ -12,3 +12,4 @@ Demo/
 *.mov
 .dd-bat/
 __pycache__/
+.dd-bat-v2/
