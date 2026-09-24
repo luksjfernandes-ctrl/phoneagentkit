@@ -107,3 +107,30 @@ import Testing
         #expect(Reader.chunks(text, size: 100, max: 3).count == 3)
     }
 }
+
+@Suite struct MarkdownSectionsTests {
+    @Test func splitsByPrefixAndKeepsBodies() {
+        let doc = "intro\n# Page: A\n## One\nx\n## Two\ny\n# Page: B\nz"
+        let pages = MarkdownSections.split(doc, prefix: "# Page: ")
+        #expect(pages.map(\.title) == ["A", "B"])
+        #expect(MarkdownSections.split(pages[0].body, prefix: "## ") == [.init(title: "One", body: "x"), .init(title: "Two", body: "y")])
+        #expect(pages[1].body == "z")
+    }
+}
+
+@Suite struct RankTests {
+    @Test func titleMatchesComeFirst() {
+        let s = [MarkdownSection(title: "Lifecycle", body: "stdio is mentioned once"),
+                 MarkdownSection(title: "Transports", body: "stdio stdio"),
+                 MarkdownSection(title: "Security", body: "")]
+        #expect(MarkdownSections.rank(s, for: "What transports exist for stdio?", limit: 2).map(\.title) == ["Transports", "Lifecycle"])
+    }
+}
+
+@Suite struct UniqueMatchTests {
+    @Test func codeDecidesOnlyWhenOneTitleMatches() {
+        let s = [MarkdownSection(title: "Transport Layer", body: ""), MarkdownSection(title: "Security", body: "")]
+        #expect(MarkdownSections.uniqueTitleMatch(s, for: "Which transport?") == 0)
+        #expect(MarkdownSections.uniqueTitleMatch(s, for: "Tell me everything") == nil)
+    }
+}
