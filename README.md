@@ -34,7 +34,7 @@ The app cannot choose the variant.
 
 - **Raw MCP tools do not fit.** One popular workspace connector exposes 45 tools = **14,221 tokens**; an issue tracker's 38 tools = 8,166 tokens. Trimming is mandatory, not an optimization.
 - **Rate limit:** 40 back-to-back calls with the app in the foreground, no throttling. One call once took 127 s.
-- **Letting the 3B model find the source by itself:** 13/24 correct. Not reliable.
+- **Letting the 3B model find the source by itself:** 13/24 correct (3/9 on tasks it had never seen). Not reliable.
 - **With the source pinned by the user:** 24/30 on one connector, 14/18 on another once fields were labelled by code. The menu choice was right 15/15.
 
 These numbers come from our own test tasks, not a benchmark. Expect different results with other data.
@@ -72,6 +72,16 @@ print(try await session.respond(to: "In modelcontextprotocol/swift-sdk, which cl
 - **iPhone:** `Examples/HelloAgent` (generate the project with `xcodegen`, pick your signing team).
 - **OAuth servers:** create `NativeOAuth(redirectURI: URL(string: "yourapp://oauth/callback")!, clientName: "Your App")`, call `authorize(server:presenter:)` with an `ASWebAuthenticationSession`-backed presenter, then pass the token to `MCPConnection.connect(to:token:)`.
 
+## Siri and Shortcuts (App Intent example)
+
+`Examples/HelloAgent/App/AskAgentIntent.swift` exposes the same engine as an App Intent, "Ask the agent", with a question and a repository (`owner/repo`). An `AppShortcutsProvider` makes it show up in Shortcuts and Siri ("Ask Hello Agent") without the user building anything. The intent follows the pinned-source pattern: code calls the MCP tool for the given repository, and the model only phrases the answer.
+
+To be precise: this is **your app's** intent, running the on-device model inside your app's process. Siri can invoke it; Siri itself does not speak MCP.
+
+Status (September 2026):
+- **iOS 27 simulator:** the shortcut is registered and listed in Shortcuts, but tapping it never calls `perform()`, and text-driven Siri (`siriService`) does not open.
+- **Device:** verification pending.
+
 ## Tests
 
 `swift test` covers what runs without a device: PKCE (RFC 7636 vector), the authorization URL, the callback state check, form encoding, trimming, the budget fit, schema pruning, menus, labelled records and the gate.
@@ -96,5 +106,7 @@ O PhoneAgentKit reúne as peças para montar um assistente pessoal que roda no *
   - PCC sem o entitlement da Apple: o app cai.
   - ChatGPT da Siri: sem API para apps de terceiros.
   - Gmail: não há conexão de um toque.
+
+Um App Intent de exemplo ("Ask the agent") deixa a Siri e os Atalhos chamarem o mesmo motor. É o intent do SEU app; a Siri não fala MCP sozinha. No simulador do iOS 27, o atalho aparece mas não executa; a prova no aparelho está pendente.
 
 Requisitos: iOS 26.4+ (a variante do modelo só aparece no 27) e Apple Intelligence ligado. Licença MIT.

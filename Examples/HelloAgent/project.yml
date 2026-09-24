@@ -20,4 +20,22 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.helloagent
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Hello Agent
         CODE_SIGN_STYLE: Automatic
+  HelloAgentUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: HelloAgent
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.helloagent.uitests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  HelloAgent:
+    build:
+      targets:
+        HelloAgent: all
+    test:
+      targets: [HelloAgentUITests]

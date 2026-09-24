@@ -7,3 +7,6 @@ xcuserdata/
 *.log
 Fixtures/
 Bateria/brutos/
+# gravações da demo (grandes, e podem mostrar a tela do aparelho)
+Demo/
+*.mov
