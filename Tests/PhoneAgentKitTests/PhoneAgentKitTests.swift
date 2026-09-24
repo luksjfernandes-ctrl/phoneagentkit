@@ -134,3 +134,11 @@ import Testing
         #expect(MarkdownSections.uniqueTitleMatch(s, for: "Tell me everything") == nil)
     }
 }
+
+@Suite struct TrimMetaTests {
+    @Test func dropsTrailingMissingNote() {
+        #expect(PinnedSource.trimMeta("It uses stdin and stdout. What is missing: No specific details.") == "It uses stdin and stdout.")
+        #expect(PinnedSource.trimMeta("Plain answer.") == "Plain answer.")
+        #expect(PinnedSource.trimMeta("What is missing: everything") == "What is missing: everything")
+    }
+}

@@ -84,7 +84,7 @@ To be precise: this is **your app's** intent, running the on-device model inside
 
 Status (September 2026):
 - **iOS 27 simulator:** the shortcut is registered and listed in Shortcuts, but tapping it never calls `perform()`, and text-driven Siri (`siriService`) does not open.
-- **Device:** verification pending.
+- **Device (iPhone 17, iOS 27, September 24, 2026):** saying "Hey Siri, ask Hello Agent" ran the intent and Siri showed the correct answer, written by the on-device model. The app must be opened once after install so that Siri registers its shortcuts.
 
 ## Tests
 
@@ -111,6 +111,6 @@ O PhoneAgentKit reúne as peças para montar um assistente pessoal que roda no *
   - ChatGPT da Siri: sem API para apps de terceiros.
   - Gmail: não há conexão de um toque.
 
-Um App Intent de exemplo ("Ask the agent") deixa a Siri e os Atalhos chamarem o mesmo motor. É o intent do SEU app; a Siri não fala MCP sozinha. No simulador do iOS 27, o atalho aparece mas não executa; a prova no aparelho está pendente.
+Um App Intent de exemplo ("Ask the agent") deixa a Siri e os Atalhos chamarem o mesmo motor. É o intent do SEU app; a Siri não fala MCP sozinha. Provado no iPhone 17 em 24/09/2026: "Hey Siri, ask Hello Agent" executou o intent e a Siri mostrou a resposta escrita pelo modelo local. No simulador do iOS 27, o atalho aparece mas não executa.
 
 Requisitos: iOS 26.4+ (a variante do modelo só aparece no 27) e Apple Intelligence ligado. Licença MIT.
