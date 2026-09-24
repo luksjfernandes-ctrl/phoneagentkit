@@ -32,10 +32,10 @@ This is a framework, not a finished assistant. It does **not** give you an auton
 
 The app cannot choose the variant.
 
-- **Raw MCP tools do not fit.** One popular workspace connector exposes 45 tools = **14,221 tokens**; an issue tracker's 38 tools = 8,166 tokens. Trimming is mandatory, not an optimization.
+- **Raw MCP tools do not fit.** Notion's MCP server exposes 45 tools = **14,221 tokens**; Linear's 38 tools = 8,166 tokens. Trimming is mandatory, not an optimization: Notion trimmed to 2 tools (search and fetch) with short descriptions = **455 tokens**.
 - **Rate limit:** 40 back-to-back calls with the app in the foreground, no throttling. One call once took 127 s.
 - **Letting the 3B model find the source by itself:** 13/24 correct (3/9 on tasks it had never seen). Not reliable.
-- **With the source pinned by the user:** 24/30 on one connector, 14/18 on another once fields were labelled by code. The menu choice was right 15/15.
+- **With the source pinned by the user:** 24/30 on Notion, 3.6 to 9.4 s per question (median 5.8 s, iPhone 17, September 23). On Linear, 9/18 with raw JSON, 14/18 once status and priority were labelled by code. The menu choice was right 15/15.
 
 These numbers come from our own test tasks, not a benchmark. Expect different results with other data.
 
@@ -86,6 +86,10 @@ Status (September 2026):
 - **iOS 27 simulator:** the shortcut is registered and listed in Shortcuts, but tapping it never calls `perform()`, and text-driven Siri (`siriService`) does not open.
 - **Device (iPhone 17, iOS 27, September 24, 2026):** saying "Hey Siri, ask Hello Agent" ran the intent and Siri showed the correct answer, written by the on-device model. The app must be opened once after install so that Siri registers its shortcuts.
 
+## Privacy
+
+No telemetry. The kit only talks to the MCP server you connect to and, when you log in, to that server's OAuth endpoints. Tokens stay in this device's Keychain.
+
 ## Tests
 
 `swift test` covers what runs without a device: PKCE (RFC 7636 vector), the authorization URL, the callback state check, form encoding, trimming, the budget fit, schema pruning, menus, labelled records and the gate.
@@ -103,14 +107,16 @@ O PhoneAgentKit reúne as peças para montar um assistente pessoal que roda no *
 É um framework, **não um agente autônomo**. O que medimos num aparelho real:
 
 - **Janela de contexto:** 4.096 tokens no iPhone não-Pro e 8.192 no Mac M4.
-- **Ferramentas cruas estouram a janela:** as 45 de um conector popular somam 14.221 tokens. Enxugar é obrigatório.
+- **Ferramentas cruas estouram a janela:** as 45 do Notion somam 14.221 tokens; enxutas (2 ferramentas), 455. Enxugar é obrigatório.
 - **Busca autônoma no modelo de 3B:** 13/24, não confiável.
-- **Com a fonte marcada pelo usuário (@menção):** 24/30 e 14/18. O código conduz, o modelo escolhe num menu numerado, e listas e contagens saem do dado, com campos rotulados pelo código.
+- **Com a fonte marcada pelo usuário (@menção):** 24/30 no Notion, de 3,6 a 9,4 s por pergunta (mediana de 5,8 s); no Linear, de 9/18 para 14/18 com os campos rotulados pelo código. O código conduz, o modelo escolhe num menu numerado, e listas e contagens saem do dado, com campos rotulados pelo código.
 - **O que não funciona:**
   - PCC sem o entitlement da Apple: o app cai.
   - ChatGPT da Siri: sem API para apps de terceiros.
   - Gmail: não há conexão de um toque.
 
 Um App Intent de exemplo ("Ask the agent") deixa a Siri e os Atalhos chamarem o mesmo motor. É o intent do SEU app; a Siri não fala MCP sozinha. Provado no iPhone 17 em 24/09/2026: "Hey Siri, ask Hello Agent" executou o intent e a Siri mostrou a resposta escrita pelo modelo local. No simulador do iOS 27, o atalho aparece mas não executa.
+
+Sem telemetria: o kit só fala com o servidor MCP que você conectar e com o OAuth dele.
 
 Requisitos: iOS 26.4+ (a variante do modelo só aparece no 27) e Apple Intelligence ligado. Licença MIT.
