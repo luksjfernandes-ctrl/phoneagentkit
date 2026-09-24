@@ -1,0 +1,23 @@
+# Gere o projeto com `xcodegen generate` e escolha o seu time de assinatura no Xcode.
+name: HelloAgent
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "26.4"
+packages:
+  PhoneAgentKit:
+    path: ../..
+targets:
+  HelloAgent:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: PhoneAgentKit
+        product: PhoneAgentKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.helloagent
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGN_STYLE: Automatic

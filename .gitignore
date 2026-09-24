@@ -1,0 +1,9 @@
+.build/
+.dd/
+.swiftpm/
+*.xcodeproj/
+xcuserdata/
+# resultados de rodadas e fixtures com dados reais nunca entram no git
+*.log
+Fixtures/
+Bateria/brutos/
