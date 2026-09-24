@@ -24,7 +24,14 @@ Pergunta da bateria: dá para construir sobre o modelo local da Apple um app gra
   | + regra 3 | 9/10 |
   | + regra 4 | **8/10** |
 
-  As regras foram escritas olhando as falhas do kit e seguem para ratificação da sessão coordenadora. O `rescore.py` fica congelado com elas antes da rodada do iPhone.
+  **Notas lado a lado:**
+
+  | Corretor | Kit | v2 |
+  |---|---|---|
+  | original | 5/10 (15/30) | 2/10 (7/30) |
+  | ajustado | 8/10 (26/30) | 2/10 (7/30) |
+
+  As 4 regras foram escritas depois de ver as falhas do kit. A sessão coordenadora as ratificou em 24/09. As mesmas regras valem para a v2, que foi reavaliada e ficou em 2/10 nas duas versões. A regra 4 é permanente. O `rescore.py` fica congelado com elas antes da rodada do iPhone.
 
   As notas do corretor original ficam nos brutos (campo `nota`); as novas, em `nota2`.
 - **Dois agentes nas mesmas tarefas:**
