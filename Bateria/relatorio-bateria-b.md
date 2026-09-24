@@ -1,8 +1,10 @@
 # Bateria B · relatório (parcial, 24/09/2026)
 
+> **Veredito parcial: o B4 REPROVA no aparelho principal.** No iPhone 17 (3B, 4K), o kit fez 2/10 no corretor e **1/10 na revisão manual**; a linha de base v2 fez 1/10. No Mac M4, com o mesmo código, o kit fez 8/10. Com o B4 reprovado, a Bateria B não chega a PASSA: no máximo FAIXA DO MEIO, se B1, B2 e B5 passarem.
+
 Pergunta da bateria: dá para construir sobre o modelo local da Apple um app gratuito de assistente que funcione como produto? Spec: `SecondLucas/C01 Claude Obsidian/04 Projetos & Specs/2026-09-24__spec__bateria-b-meta-muse-local.md`.
 
-**Estado:** B4 e B6(a) rodados no **Mac M4** (referência). Falta o **iPhone 17**, que é o aparelho principal (agenda com a sessão coordenadora). B1, B2, B3 e B5 dependem do Lucas: ver `PENDENCIAS-LUCAS.md`. Ainda não há veredito, porque a régua da spec exige B1, B2, B4 e B5.
+**Estado:** B4 rodado no **Mac M4** (referência) e no **iPhone 17** (aparelho principal), os dois no commit `b6cbf1d`. B6(a) rodado no Mac; o do iPhone está na seção dele. B1, B2, B3 e B5 dependem do Lucas: ver `PENDENCIAS-LUCAS.md`. Ainda não há veredito, porque a régua da spec exige B1, B2, B4 e B5.
 
 ## Método e ressalvas declaradas
 
@@ -87,6 +89,41 @@ Régua: ≥ 8/10 tarefas. Uma tarefa passa com 2/3 ou 3/3 rodadas certas.
   - B4.1: em vez de responder, devolveu as chamadas de ferramenta como texto.
 - **Contraste:** kit 8/10 × v2 2/10. Sem o B4.10, que era impossível para a v2 por construção, fica kit 7/9 × v2 2/9. Esta é a versão para citar. É o mesmo achado do Notion (3/9 × 24/30), agora nos dados nativos.
 
+## B4 · iPhone 17 (AFM 3 Core, contexto 4.096), aparelho principal
+
+Mesmo commit, mesmas regras de correção, 24/09 às ~20h45. Semente `1790293626`.
+
+| Tarefa | kit | v2 |
+|---|---|---|
+| B4.1 amanhã | ✗✗✗ | ✗✗✗ |
+| B4.2 próximo compromisso | ✗✗✗ | ✗✗✗ |
+| B4.3 lembretes atrasados | ✗✗✗ | ✗✗✓ |
+| B4.4 telefone de {contato} | ✗✗✗ **perigosa** | ✗✓✓ **perigosa** |
+| B4.5 sexta à tarde | ✗✗✗ | ✗✗✗ |
+| B4.6 weekend (EN) | ✗✗✗ | ✗✗✗ |
+| B4.7 contagem da {lista} | ✓✗✓ (coincidência) | ✗✗✗ |
+| B4.8 última foto | ✗✗✗ | ✓✓✓ |
+| B4.9 due today (EN) | ✗✗✗ | ✗✗✗ |
+| B4.10 dia da semana do dia 10 | ✓✓✗ | ✗✗✗ |
+| **Corretor automático** | **2/10 (4/30)** | **1/10 (6/30)** |
+| **Revisão manual** | **1/10** | 1/10 |
+
+- **Latência:** kit com p50 de 3,9 s e p95 de 4,5 s; v2 com p50 de 3,5 s, p95 de 5,6 s e máximo de 22,6 s. Nenhum erro de geração.
+- **Idioma:** as tarefas em inglês fizeram 0/6 nos dois agentes.
+
+**Erros por padrão (iPhone)**
+
+- **O menu de fontes quebra no 3B. É a causa principal.**
+  - O mesmo menu que acertou 30/30 no Mac errou sempre do mesmo jeito nas 3 rodadas: mandou os lembretes (B4.3, B4.7 e B4.9) para a **agenda** e "última foto" (B4.8) para **contatos**.
+  - A partir da fonte errada, o modelo responde com o que tem: "Não há lembretes atrasados", ou "The source does not cover it".
+  - O menu numerado que acertou 15/15 no Notion (escolha de visão dentro de uma fonte já marcada) não aguenta rotear entre domínios parecidos, com opções em inglês e pedidos em português.
+- **B4.7 do kit, acerto por coincidência:** o "15" saiu da agenda (fonte=1), não da lista de lembretes. Na revisão manual, conta como erro.
+- **B4.4, perigosa nos dois agentes:** o modelo busca só o primeiro nome e mostra o telefone de um homônimo.
+- **Período errado:** o B4.1 ("amanhã") foi para "próximos 7 dias", e o B4.2 ("próximo compromisso") respondeu com um evento de hoje como "dia todo".
+- **v2:** só acertou quando a ferramenta devolve um valor único (a foto). O acerto no B4.3 (1/3) é duvidoso: ela listou todos os lembretes em aberto, e o corretor achou os atrasados no meio.
+
+**Hipótese para a rodada 2, com tarefas inéditas da coordenadora:** "fonte marcada também no nativo". O **usuário** escolhe o domínio num chip (Agenda, Lembretes, Contatos, Fotos, Datas), e o modelo não roteia. O idioma do menu (pt × en) entra como variável. O harness está pronto no commit `aeb4bda` (modos `chip-en` e `chip-pt`) e **não foi rodado**. O modo `kit` da v1 continua idêntico.
+
 ## B6(a) · cota (Mac M4)
 
 150 chamadas de 1 etapa, uma a cada 18 s, com o app aberto e `caffeinate`, das 17h39 às 18h24.
@@ -109,6 +146,7 @@ Régua: ≥ 8/10 tarefas. Uma tarefa passa com 2/3 ou 3/3 rodadas certas.
 
 ## Falta
 
-- iPhone 17: B4 (kit e v2) e B6(a), no commit `b6cbf1d`.
+- iPhone 17: B6(a) (rodando).
+- B4 rodada 2: tarefas inéditas da coordenadora, com os modos `chip-en`, `chip-pt`, `kit` e `v2`.
 - B6(b), com 20 chamadas via App Intent com o app em segundo plano: não está no harness ainda.
 - B1, B2, B3 e B5: `PENDENCIAS-LUCAS.md`.
