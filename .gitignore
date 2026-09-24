@@ -11,3 +11,4 @@ Bateria/brutos/
 Demo/
 *.mov
 .dd-bat/
+__pycache__/
