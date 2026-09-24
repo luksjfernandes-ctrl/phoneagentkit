@@ -1,0 +1,41 @@
+# Bateria B: app de medição (iOS + macOS) sobre o PhoneAgentKit. `xcodegen generate` e rode.
+# Resultados brutos (com dados pessoais) vão para Documents do app e depois para Bateria/brutos/ (fora do git).
+name: BateriaB
+options:
+  bundleIdPrefix: br.com.letoapp
+  deploymentTarget:
+    iOS: "26.4"
+    macOS: "26.4"
+settings:
+  base:
+    DEVELOPMENT_TEAM: "6LQDZN352H"
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+packages:
+  PhoneAgentKit:
+    path: ..
+targets:
+  BateriaB:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources: [App]
+    dependencies:
+      - package: PhoneAgentKit
+        product: PhoneAgentKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Bateria B
+        UILaunchScreen: {}
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        NSCalendarsFullAccessUsageDescription: A bateria lê a agenda para medir o agente local. Nada é gravado.
+        NSRemindersFullAccessUsageDescription: A bateria lê os lembretes para medir o agente local. Nada é gravado.
+        NSContactsUsageDescription: A bateria busca contatos para medir o agente local.
+        NSPhotoLibraryUsageDescription: A bateria lê só a data da foto mais recente.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: br.com.letoapp.bateriab
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
