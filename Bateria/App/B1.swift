@@ -85,7 +85,10 @@ enum B1 {
 
     static let escolha = "Pick the option that best answers the user's request."
 
-    static func responder(_ pedido: String, cli: Client, dono: String, repo: String, trilha: inout [String]) async throws -> String {
+    /// v2 (hipótese, NÃO usada na rodada atual): `operacao` = chip escolhido pelo usuário (0 contagem, 1 mais antiga,
+    /// 2 com rótulo, 3 atrasadas, 4 todas); o modelo não escolhe a operação, só preenche argumentos (ex.: o rótulo).
+    static func responder(_ pedido: String, cli: Client, dono: String, repo: String, trilha: inout [String],
+                          operacao: Int? = nil) async throws -> String {
         let fonte = "\(dono)/\(repo)"
         // @#n no pedido = item marcado pelo usuário: o código busca a issue, sem menu
         if let r = pedido.range(of: #"@#(\d+)"#, options: .regularExpression), let n = Int(pedido[r].dropFirst(2)) {
@@ -99,8 +102,9 @@ enum B1 {
         trilha.append("abertas=\(todas.count)")
         let menu = NumberedMenu(["Count of open issues", "The oldest open issue", "Open issues with a given label",
                                  "Overdue open issues (milestone due date already passed)", "All open issues"])
-        let e = try await menu.choose(for: pedido, instructions: escolha) ?? 4
-        trilha.append("visao=\(e + 1)")
+        let e: Int
+        if let operacao { e = operacao; trilha.append("chip=\(e + 1)") }
+        else { e = try await menu.choose(for: pedido, instructions: escolha) ?? 4; trilha.append("visao=\(e + 1)") }
         let fatos: String
         switch e {
         case 0: fatos = "\(todas.count) open issue(s) in \(fonte)."

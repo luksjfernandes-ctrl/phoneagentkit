@@ -165,6 +165,18 @@ Cinco subpáginas de teste no Notion, criadas pela sessão coordenadora, com uma
 - **Nota:** a consulta `list` em 10 apps voltou "1 active, 9 initiated", sem contas. Não sei se o "list" criou pedidos de conexão pendentes. A chamada não foi repetida.
 - **Asana e Atlassian (nota):** o Asana recusou o registro dinâmico ("registrationFailed"). O Atlassian aceitou o login, mas devolveu "access denied", provavelmente porque a conta nova não tem site Jira ou Confluence.
 
+## B1 via Composio · GitHub (iPhone 17)
+
+Repositório **público** `apple/swift-openapi-generator`, lido com a conta do Lucas pelo Composio, só leitura. O gabarito sai da API do GitHub (`gh`), calculado no Mac imediatamente antes da rodada (`b1/gabarito.py`, semente `20260924`). O **B1.4 (atrasadas) é não aplicável**: nenhum milestone aberto tem prazo, então o gabarito é "nada atrasado". O **B1.5 (responsável)** usa uma issue com responsável.
+
+- **Rodada 1 (commit `79e935c`): inválida por encanamento.** O código recebeu 0 issues em todas as chamadas, com slugs e argumentos conferidos contra o esquema do Composio. Ela será refeita e declarada.
+- **Achado válido mesmo assim: o 3B erra a escolha da operação no menu.** A escolha acontece antes dos dados e errou em 2 de 4 tarefas, nas 3 rodadas:
+  - B1.2 ("a mais antiga") foi para "contagem";
+  - B1.6 ("com o rótulo X") foi para "a mais antiga".
+
+  É o mesmo padrão do B4 no iPhone: menu entre operações parecidas não é confiável no 3B.
+- **Hipótese da v2, preparada e NÃO aplicada:** o usuário escolhe a operação num chip, e o modelo só preenche os argumentos (por exemplo, o rótulo). O parâmetro `operacao` de `B1.responder` fica desligado por padrão.
+
 ## B6(a) · cota (Mac M4)
 
 150 chamadas de 1 etapa, uma a cada 18 s, com o app aberto e `caffeinate`, das 17h39 às 18h24.
