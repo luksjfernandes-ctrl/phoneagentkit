@@ -104,8 +104,13 @@ enum Gmail {
                     var r = Resultado(pergunta: p.id, rodada: rodada)
                     let t0 = Date()
                     do {
-                        let e = try await menu.choose(for: p.pedido, instructions: B4.escolha) ?? 4
-                        r.trilha.append("visao=\(e + 1)\(e == p.menuOk ? "" : " (esperada \(p.menuOk + 1))")")
+                        // v2 (hipótese, `--chip`): o usuário escolhe a operação e o modelo não roteia
+                        let e: Int
+                        if ProcessInfo.processInfo.arguments.contains("--chip") { e = p.menuOk; r.trilha.append("chip=\(e + 1)") }
+                        else {
+                            e = try await menu.choose(for: p.pedido, instructions: B4.escolha) ?? 4
+                            r.trilha.append("visao=\(e + 1)\(e == p.menuOk ? "" : " (esperada \(p.menuOk + 1))")")
+                        }
                         let sel: [Msg], filtro: String
                         switch e {
                         case 0: (sel, filtro) = (deHoje.filter(\.naoLida), "unread, received today")
