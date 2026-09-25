@@ -41,6 +41,14 @@ struct ContentView: View {
             if let i = a.firstIndex(of: "--conectar"), i + 1 < a.count {
                 let apps = a[i + 1].components(separatedBy: ","); await run { await Composio.conectarApps(apps, log: $0) }
             }
+            if let i = a.firstIndex(of: "--exec"), i + 1 < a.count { let j = a[i + 1]; await run { await Composio.exec(j, log: $0) } }
+            if let i = a.firstIndex(of: "--esquemas"), i + 1 < a.count {
+                let s = a[i + 1].components(separatedBy: ","); await run { await Composio.esquemas(s, log: $0) }
+            }
+            if let i = a.firstIndex(of: "--v2"), i + 1 < a.count {
+                let b = a[i + 1].components(separatedBy: ","); await run { await V2.rodar(blocos: b, log: $0) }
+            }
+            if a.contains("--limpar-a") { await run { V2.limparA(log: $0) } }
             if a.contains("--gmail") { await run { await Gmail.rodar(log: $0) } }
             if a.contains("--b1") { await run { await B1.rodar(log: $0) } }
             if a.contains("--composio") { await run { await Composio.sonda(log: $0) } }

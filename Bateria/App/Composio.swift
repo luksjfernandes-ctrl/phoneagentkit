@@ -84,6 +84,27 @@ enum Composio {
         } catch { log("composio: falhou ao gerar links: \(error)") }
     }
 
+    /// Sonda de encanamento (só leitura): executa slugs com argumentos dados e grava a resposta crua.
+    /// Uso: --exec '[{"tool_slug":"...","arguments":{...}}]'   ou   --esquemas SLUG1,SLUG2
+    static func exec(_ json: String, log: @escaping @Sendable (String) -> Void) async {
+        do {
+            let cli = try await Conectores.conectar("composio", log: log)
+            let v = try JSONDecoder().decode(Value.self, from: Data(json.utf8))
+            let t = try await texto(cli, "COMPOSIO_MULTI_EXECUTE_TOOL", ["tools": v, "sync_response_to_workbench": .bool(false),
+                                                                         "thought": .string("read-only probe by app code")])
+            Saida.gravar("composio-exec.json", ["texto": t]); log("composio exec: \(t.count) caracteres")
+            await cli.disconnect()
+        } catch { log("composio exec falhou: \(error)") }
+    }
+    static func esquemas(_ slugs: [String], log: @escaping @Sendable (String) -> Void) async {
+        do {
+            let cli = try await Conectores.conectar("composio", log: log)
+            let t = try await texto(cli, "COMPOSIO_GET_TOOL_SCHEMAS", ["tool_slugs": .array(slugs.map { .string($0) })])
+            Saida.gravar("composio-esquemas.json", ["texto": t]); log("composio esquemas: \(t.count) caracteres")
+            await cli.disconnect()
+        } catch { log("composio esquemas falhou: \(error)") }
+    }
+
     /// Procura o primeiro objeto com "properties" (o input_schema) na resposta.
     static func acharEsquema(_ v: Value) -> Value? {
         switch v {

@@ -14,3 +14,5 @@ Demo/
 __pycache__/
 .dd-bat-v2/
 b1/b1.json
+Bateria/v2/h.json
+.DS_Store
