@@ -175,7 +175,36 @@ Repositório **público** `apple/swift-openapi-generator`, lido com a conta do L
   - B1.6 ("com o rótulo X") foi para "a mais antiga".
 
   É o mesmo padrão do B4 no iPhone: menu entre operações parecidas não é confiável no 3B.
+- **Rodada 2:** as conexões do GitHub e do Gmail não estavam na conta da sessão MCP ("No active connection found for toolkit(s) 'github'"). Os links de conexão foram gerados pela própria sessão MCP, e o Lucas os autorizou.
+- **Rodada 3 (commit `81b85d1`, 23h03):**
+
+  | Tarefa | Resultado |
+  |---|---|
+  | B1.3 resumo da issue marcada | **3/3** (título e conteúdo certos) |
+  | B1.5 responsável da issue marcada | **3/3** |
+  | B1.4 atrasadas | não aplicável |
+  | B1.1, B1.2, B1.6 (listagem) | **sem dado** |
+
+  - **Por que a listagem veio vazia:** com resposta grande, o Composio devolve só uma amostra (`data_preview`), com cada issue cortada ("…: 18 more fields", sem número nem título). O resultado completo vai para o **workbench remoto**, que o kit bloqueia. Achado de arquitetura: via Composio, listas grandes só chegam inteiras em páginas pequenas.
+  - **Escolha no menu:** errou de novo no B1.2 (3/3) e no B1.6 (2/3).
 - **Hipótese da v2, preparada e NÃO aplicada:** o usuário escolhe a operação num chip, e o modelo só preenche os argumentos (por exemplo, o rótulo). O parâmetro `operacao` de `B1.responder` fica desligado por padrão.
+
+## Gmail via Composio · só metadado (iPhone 17)
+
+A tese do Lucas é "login fácil para o Gmail". O Gmail foi conectado com um link do Composio, aprovado com a conta Google. O **código** busca os e-mails dos últimos 7 dias. O modelo vê **só remetente, assunto e data**, nunca o corpo, e não houve nenhuma ação. As respostas do modelo **não foram gravadas**: fica só a nota. Ressalva: as 5 perguntas foram escritas por quem escreveu o agente, então **não são cegas**.
+
+| Pergunta | Acerto | Operação no menu |
+|---|---|---|
+| G1 não lidos hoje | 3/3 | certa 3/3 |
+| G2 remetente do último e-mail | 2/3 | certa 3/3 |
+| G3 assunto do mais recente de {remetente} | **0/3** | errada 3/3 |
+| G4 recebidos ontem | 3/3 | certa 1/3 (2 acertos por coincidência) |
+| G5 (EN) assunto do mais recente | 3/3 | errada 3/3 (o mais recente estava em "não lidos hoje") |
+
+- **Placar:** 4/5 no corretor automático; **2/5** exigindo a operação certa no menu.
+- **O que ficou provado:** conectar o Gmail num toque pelo Composio e lê-lo no iPhone com o modelo local funciona.
+- **O gargalo:** de novo, a escolha de operação pelo 3B.
+- **Privacidade:** mesmo com `include_payload=false`, a resposta do Composio traz o texto do e-mail (`messageText`). O código não o passa ao modelo, mas **o corpo passa pelos servidores do Composio**.
 
 ## B6(a) · cota (Mac M4)
 
@@ -197,14 +226,22 @@ Repositório **público** `apple/swift-openapi-generator`, lido com a conta do L
   A nº 70 levou 36 s. O Mac não dormiu. Nada verificou que o app ficou em primeiro plano durante as 45 min. O `caffeinate` só impediu o repouso.
 - **Possível contaminação, não conclusão:** às 17h55 havia um `xcodebuild` de testes de outra sessão rodando no Mac, e a perícia de outra sessão, que usa o modelo local, só foi pausada por volta das 18h03, quando combinamos a exclusividade. A nº 91 (18h06) veio depois disso. Se o iPhone, com exclusividade desde o início, também tiver chamadas acima de 60 s, a lentidão é do sistema e não da concorrência.
 
-## B6(a) · iPhone 17 (parcial)
+## B6(a) · iPhone 17 (completo)
 
-31 chamadas em 9 min, com 0 rateLimited, p50 de 1,09 s, p95 de 1,33 s e máximo de 1,4 s. A medição parou às 21h01, quando o app saiu da frente e o iOS o suspendeu. A sessão coordenadora aceitou o parcial como válido, e a rodada completa será refeita com o aparelho parado.
+150 chamadas em 44,7 min, das 22h17 às 23h02, com o aparelho parado e o app na frente.
+
+| rateLimited | outros erros | p50 | p95 | máximo | > 60 s |
+|---|---|---|---|---|---|
+| **0** | 0 | 1,12 s | 1,38 s | 2,2 s | **0** |
+
+- **Régua:** passa, com 0 bloqueios e p95 ≤ 10 s.
+- **Contraste com o Mac:** o iPhone, com exclusividade desde o início, não teve nenhuma chamada lenta. Isso reforça que os 205 a 252 s do Mac vieram da concorrência com outra sessão.
+- **Tentativas anteriores:** duas foram interrompidas quando o app saiu da frente. A de 21h01 tinha 31 chamadas, todas válidas.
 
 ## Falta
 
-- iPhone 17: B6(a) completo (150 chamadas, aparelho parado).
-- B1 via Composio: conectar um app de tarefas (sugestão: GitHub) e escrever o adaptador das 6 tarefas.
+- B1 via Composio: refazer a listagem com páginas pequenas (per_page 10), para não cair no `data_preview`.
+- v2 com chip de operação (B1, Gmail e nativo), com tarefas inéditas da coordenadora.
 - B4 rodada 2: tarefas inéditas da coordenadora, com os modos `chip-en`, `chip-pt`, `kit` e `v2`.
 - B6(b), com 20 chamadas via App Intent com o app em segundo plano: não está no harness ainda.
 - B1, B2, B3 e B5: `PENDENCIAS-LUCAS.md`.

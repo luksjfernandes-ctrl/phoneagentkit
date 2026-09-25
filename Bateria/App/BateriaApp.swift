@@ -38,6 +38,9 @@ struct ContentView: View {
             if a.contains("--b6") { await run { await B6.rodar(log: $0) } }
             if let i = a.firstIndex(of: "--descobrir"), i + 1 < a.count { let n = a[i + 1]; await run { await Conectores.descobrir(n, log: $0) } }
             if a.contains("--b5") { await run { await B5.rodar(log: $0) } }
+            if let i = a.firstIndex(of: "--conectar"), i + 1 < a.count {
+                let apps = a[i + 1].components(separatedBy: ","); await run { await Composio.conectarApps(apps, log: $0) }
+            }
             if a.contains("--gmail") { await run { await Gmail.rodar(log: $0) } }
             if a.contains("--b1") { await run { await B1.rodar(log: $0) } }
             if a.contains("--composio") { await run { await Composio.sonda(log: $0) } }

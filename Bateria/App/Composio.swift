@@ -71,6 +71,19 @@ enum Composio {
         log("composio: sonda gravada (composio-sonda.json)")
     }
 
+    /// Gera links de conexão ("add") para os apps pedidos — escrita só de conexão, autorizada pelo Lucas.
+    /// Os links vão para arquivo (fora do git), não para o log.
+    static func conectarApps(_ apps: [String], log: @escaping @Sendable (String) -> Void) async {
+        do {
+            let cli = try await Conectores.conectar("composio", log: log)
+            let t = try await texto(cli, "COMPOSIO_MANAGE_CONNECTIONS",
+                ["toolkits": .array(apps.map { .object(["name": .string($0), "action": .string("add")]) })])
+            Saida.gravar("composio-links.json", ["resposta": t])
+            log("composio: links de conexão gravados em composio-links.json (\(apps.joined(separator: ", ")))")
+            await cli.disconnect()
+        } catch { log("composio: falhou ao gerar links: \(error)") }
+    }
+
     /// Procura o primeiro objeto com "properties" (o input_schema) na resposta.
     static func acharEsquema(_ v: Value) -> Value? {
         switch v {
