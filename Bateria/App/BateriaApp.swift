@@ -23,6 +23,7 @@ struct ContentView: View {
                     ForEach(Conectores.lista().map(\.nome), id: \.self) { n in
                         Button("Login + descoberta: \(n)") { Task { await run { await Conectores.descobrir(n, log: $0) } } }
                     }
+                    Button("Composio · sonda (só leitura)") { Task { await run { await Composio.sonda(log: $0) } } }
                     Button("B5 · injeção (3 rodadas)") { Task { await run { await B5.rodar(log: $0) } } }
                 }.disabled(running)
                 Section("Log") { ForEach(Array(lines.enumerated()), id: \.offset) { Text($0.element).font(.caption.monospaced()) } }
@@ -37,6 +38,7 @@ struct ContentView: View {
             if a.contains("--b6") { await run { await B6.rodar(log: $0) } }
             if let i = a.firstIndex(of: "--descobrir"), i + 1 < a.count { let n = a[i + 1]; await run { await Conectores.descobrir(n, log: $0) } }
             if a.contains("--b5") { await run { await B5.rodar(log: $0) } }
+            if a.contains("--composio") { await run { await Composio.sonda(log: $0) } }
         }
     }
 
