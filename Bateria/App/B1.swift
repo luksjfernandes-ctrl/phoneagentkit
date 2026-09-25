@@ -16,11 +16,13 @@ enum B1 {
     struct Resultado: Codable { let tarefa: String; let rodada: Int; var trilha: [String] = []; var resposta = ""; var erro: String?; var segundos = 0.0 }
 
     static let listar = "GITHUB_LIST_REPOSITORY_ISSUES", obter = "GITHUB_GET_AN_ISSUE"
+    nonisolated(unsafe) static var primeiraGravada = false   // diagnóstico: a 1ª resposta crua (dado público) vai para arquivo
 
     static func executar(_ cli: Client, _ slug: String, _ args: [String: Value]) async throws -> Value {
         let t = try await Composio.texto(cli, "COMPOSIO_MULTI_EXECUTE_TOOL", [
             "tools": .array([.object(["tool_slug": .string(slug), "arguments": .object(args)])]),
             "sync_response_to_workbench": .bool(false), "thought": .string("read-only fetch by app code")])
+        if !primeiraGravada { primeiraGravada = true; Saida.gravar("b1-resposta-crua.json", ["slug": slug, "texto": String(t.prefix(20_000))]) }
         return (try? JSONDecoder().decode(Value.self, from: Data(t.utf8))) ?? .string(t)
     }
 
@@ -31,7 +33,9 @@ enum B1 {
         func visitar(_ v: Value) {
             switch v {
             case .object(let o):
-                if case .int(let n)? = o["number"], o["title"] != nil {
+                // o JSON pode chegar com o número como inteiro ou como double, conforme o decodificador
+                let numero: Int? = { switch o["number"] { case .int(let n)?: return n; case .double(let d)?: return Int(d); default: return nil } }()
+                if let n = numero, o["title"] != nil {
                     if o["pull_request"] == nil || o["pull_request"] == .null {
                         var rot: [String] = [], resp: [String] = [], ms = "", prazo = ""
                         if case .array(let ls)? = o["labels"] { rot = ls.compactMap { if case .object(let l) = $0 { return s(l, "name") }; return nil } }
