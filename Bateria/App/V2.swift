@@ -91,7 +91,8 @@ enum V2 {
     static func gmail(_ cli: Client, _ q: String, max: Int = 200) async throws -> [Msg] {
         var todas: [Msg] = [], token: String?
         repeat {
-            var a: [String: Value] = ["query": .string(q), "max_results": .int(50), "include_payload": .bool(false), "verbose": .bool(false)]
+            // 5 por página: com 50 a resposta passa do limite e o Composio devolve só o data_preview (encanamento, 25/09)
+            var a: [String: Value] = ["query": .string(q), "max_results": .int(5), "include_payload": .bool(false), "verbose": .bool(false)]
             if let token { a["page_token"] = .string(token) }
             let v = try await executar(cli, "GMAIL_FETCH_EMAILS", a)
             todas += Gmail.mensagens(em: v).map { Msg(remetente: $0.remetente, assunto: $0.assunto, data: $0.data, naoLida: $0.naoLida) }
