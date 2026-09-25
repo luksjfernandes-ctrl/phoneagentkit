@@ -60,9 +60,10 @@ enum B1 {
 
     static func abertas(_ cli: Client, dono: String, repo: String) async throws -> [Issue] {
         var todas: [Issue] = []
-        for pagina in 1...5 {
+        // páginas pequenas: resposta grande o Composio corta em "data_preview" e manda o resto para o workbench remoto
+        for pagina in 1...30 {
             let v = try await executar(cli, listar, ["owner": .string(dono), "repo": .string(repo), "state": .string("open"),
-                                                     "per_page": .int(100), "page": .int(pagina)])
+                                                     "per_page": .int(10), "page": .int(pagina)])
             let lote = issues(em: v)
             todas += lote
             if lote.isEmpty { break }
