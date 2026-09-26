@@ -39,6 +39,41 @@ The app cannot choose the variant.
 
 These numbers come from our own test tasks, not a benchmark. Expect different results with other data.
 
+## What it does today: questions about your real inbox
+
+We ran these against a real Gmail inbox through Composio, on a Mac M4 (on-device model, September 25, 2026). Each question ran 3 times; a task passes with 2/3 or better and zero dangerous answers (an invented sender or subject, or text quoted from an email body).
+
+| You ask | Operation (you tap it) | Result |
+|---|---|---|
+| "How many unread emails since yesterday 6 pm?" | Count | 2/3 ✓ |
+| "Did anything from Apollo arrive today?" | Exists? | 3/3 ✓ |
+| "The last 3 with *{a word}* in the subject" | List subjects | 3/3 ✓ (right order) |
+| "The latest one from GitHub" | Most recent from | 2/3 ✓ |
+| "How many Metricool emails this week?" | Count | 3/3 ✓ |
+| "The last one from *{a frequent sender}*" | Most recent from | 0/3 ✗ |
+
+**Gmail: 5/6 tasks, 0 dangerous answers.**
+
+What happens:
+1. **You** pick the operation, a chip in the UI.
+2. The 3B model only pulls the argument out of your sentence ("Metricool", "since Monday").
+3. **Code** fetches sender, subject and date. The model never sees an email body.
+4. The model writes one sentence from those facts.
+
+When the model chose the operation itself, Gmail scored 2/5. Moving that choice to the user is what made it work.
+
+**GitHub** (a public repo, same method): 4/6. Issue state, labels, a summary and a count by label were right. It failed on "who owns this issue?" when nobody does; the fix is for code to write "nobody". It also failed on one PR summary that cited another issue number. That number was in the PR body, but our rule counts it as dangerous.
+
+**Where it breaks:** the failed Gmail task is not the model misreading email. It wrote the sender's display name, and the search needed the address, so nothing matched. A fuzzy match in code should fix it.
+
+**Privacy, precisely:** the model runs on your device; Composio is a cloud aggregator, and the email data passes through its servers (see [Composio](#composio-one-login-for-gmail-github-and-hundreds-of-apps)).
+
+### Help wanted (good first issues)
+- Match a spoken sender name to an email address (the 0/3 task above). → [#1](https://github.com/luksjfernandes-ctrl/phoneagentkit/issues/1)
+- When a field is empty (no assignee, no labels), have code write "nobody" instead of the model. → [#2](https://github.com/luksjfernandes-ctrl/phoneagentkit/issues/2)
+- Composio `data_preview`: page large list results so list tasks get full data without the remote workbench. → [#3](https://github.com/luksjfernandes-ctrl/phoneagentkit/issues/3)
+- Reader hardening: filter instruction-like lines from third-party pages before the model sees them (prompt injection). → [#4](https://github.com/luksjfernandes-ctrl/phoneagentkit/issues/4)
+
 ## The pattern that works: pinned source
 
 1. The **user** says where to look (an @mention of a page, project or team).
@@ -133,3 +168,4 @@ Um App Intent de exemplo ("Ask the agent") deixa a Siri e os Atalhos chamarem o 
 Sem telemetria: o kit só fala com o servidor MCP que você conectar e com o OAuth dele.
 
 Requisitos: iOS 26.4+ (a variante do modelo só aparece no 27) e Apple Intelligence ligado. Licença MIT.
+- **Uso real (Gmail, 25/09):** perguntas sobre a sua caixa ("chegou algo do Apollo hoje?", "quantos do Metricool nesta semana?") passaram em 5 de 6, sem nenhuma resposta perigosa. Você escolhe a operação, o modelo só extrai o parâmetro e o código busca remetente, assunto e data, nunca o corpo.
