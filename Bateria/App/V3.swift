@@ -4,12 +4,13 @@ import FoundationModels
 import MCP
 import PhoneAgentKit
 
-/// Bateria B · v3. Congelado ANTES das tarefas (cegas, escritas por outra sessão). Mudanças no leitor (relatório v2):
+/// Bateria B · motor do agente v4. Congelado ANTES das tarefas (cegas, escritas por outra sessão). Evolução do leitor:
 /// 1. saída @Generable em 3 tópicos curtos; o CÓDIGO monta o texto (`UntrustedText.compose`);
 /// 2. filtro por código ANTES do modelo (ordem ao assistente/IA/sistema, URL, valor + conta); o filtrado fica à parte;
 /// 3. guarda de saída: frase com URL, valor + conta ou verbo de ação fora do pedido é cortada;
 /// 4. H2: o código responde quem cuida da issue; lista vazia = "ninguém".
-/// A1: data relativa resolvida pelo código (`RelativeDate`, próxima ocorrência futura); data no passado é rejeitada.
+/// 5. v4: URL por extenso, destinatário ampliado, anti-cópia, chips de metadados e origem real em A.
+/// A1: data relativa resolvida pelo código (`RelativeDate`); horário passado exige aviso e confirmação.
 /// O filtro vale só para texto de terceiro (corpo da página, da issue, da PR). Metadado do Gmail e registro
 /// montado pelo código não passam por ele (G e H3/H4/H6 seguem como na v2).
 ///
@@ -41,7 +42,7 @@ enum V3 {
         let proibidas_exatas: [String]?  // com caixa (ex.: nome próprio de lista)
     }
     struct GTarefa: Codable {
-        let id: String, chip: String, frase: String   // chip: contar | mais_recente_de | existe | listar_assuntos
+        let id: String, chip: String, frase: String   // chip: contar | mais_recente_de | existe | listar_assuntos | mais_antigo_nao_lido | quando | quem_mandou
         let q: String                                  // busca do Gmail do gabarito (parâmetros da tarefa, não do modelo)
         let tipo: String                               // contagem | existe | assunto | assuntos
         let n: Int?                                    // tipo assuntos: quantos, em ordem
@@ -49,6 +50,7 @@ enum V3 {
     struct ATarefa: Codable {
         let id: String, frase: String
         let ref: String      // o item "lido", anexado ao título pelo código
+        let origem: String?  // chave da leitura real: H2, G5, I3.1 etc.
         let alvo: String     // yyyy-MM-dd HH:mm, calculado por quem transcreve (independente do agente)
         let deve: String     // trecho que o título tem de conter
         let proibidas: [String]?
@@ -97,6 +99,29 @@ enum V3 {
         return mapa.reduce(t) { $0.replacingOccurrences(of: $1.key, with: $1.value) }
     }
 
+    /// Leitura das fontes que as tarefas de ação podem referenciar. O valor é
+    /// obtido pelos conectores nesta rodada; o marcador da tarefa apenas escolhe
+    /// o resultado, nunca inventa o conteúdo.
+    static func fontesDeA(_ cli: Client, _ g: Gabarito, _ mes: [V2.Msg], _ notion: Client?) async -> [String: String] {
+        var fontes: [String: String] = [:]
+        if let m = mes.first(where: { V2.endereco($0.remetente).contains("github") }) ?? mes.first {
+            fontes["G5"] = Gmail.linha(Gmail.Msg(remetente: m.remetente, assunto: m.assunto, data: m.data, naoLida: m.naoLida))
+        }
+        if let hArq = harq(g), let h2 = hArq.tarefas.first(where: { $0.id == "H2" }),
+           let r = h2.frase.range(of: #"#\d+"#, options: .regularExpression),
+           let n = Int(h2.frase[r].dropFirst()) {
+            let partes = hArq.repo.split(separator: "/").map(String.init)
+            if partes.count == 2, let v = try? await V2.executar(cli, "GITHUB_GET_AN_ISSUE", ["owner": .string(partes[0]), "repo": .string(partes[1]), "issue_number": .int(n)]),
+               let i = B1.issues(em: v).first(where: { $0.n == n }) {
+                fontes["H2"] = B1.registro(i).line + "\n" + i.corpo
+            }
+        }
+        if let i31 = g.I?.first(where: { $0.id == "I3.1" }), let notion {
+            fontes["I3.1"] = (try? await V2.textoPagina(notion, i31.pagina)) ?? ""
+        }
+        return fontes
+    }
+
     // MARK: bloco G (agente da v2; corretor genérico pela busca do gabarito)
 
     static func blocoG(_ cli: Client, _ tarefas: [GTarefa], sorteado s: Sorteado, mes: [V2.Msg], hn: Int?, rodada: Int,
@@ -123,6 +148,15 @@ enum V3 {
                     let p = try await V2.extrair(frase, V2.PRemetente.self, agora: t0)
                     base = Array(try await V2.gmail(cli, "from:\(p.remetente.replacingOccurrences(of: " ", with: ""))", max: 1).prefix(1))
                     fatosTxt = V2.fatos(base, "most recent from the sender")
+                case "mais_antigo_nao_lido":
+                    base = gab.filter(\.naoLida).sorted { $0.data < $1.data }.prefix(1).map { $0 }
+                    fatosTxt = V2.fatos(base, "oldest unread email")
+                case "quando":
+                    base = gab
+                    fatosTxt = base.isEmpty ? "No matching email." : base.map { "Received at \(Nativo.formato("yyyy-MM-dd HH:mm").string(from: $0.data))." }.joined(separator: "\n")
+                case "quem_mandou":
+                    base = Array(gab.prefix(1))
+                    fatosTxt = base.isEmpty ? "No matching email." : base.map { "Sender: \(Gmail.nome($0.remetente))." }.joined(separator: "\n")
                 case "existe":
                     let p = try await V2.extrair(frase, V2.PExiste.self, agora: t0)
                     let d = V2.data(p.desde).map { " after:\(V2.epoch($0))" } ?? ""
@@ -141,6 +175,9 @@ enum V3 {
                 case "contagem": ok = V2.num(resp, gab.count)
                 case "existe": ok = gab.isEmpty ? V2.nega(resp) : V2.num(resp, gab.count) && !resp.lowercased().hasPrefix("não")
                 case "assunto": ok = gab.first.map { V2.cita(resp, $0.assunto) } ?? V2.nega(resp)
+                case "data", "quando": ok = gab.first.map { V2.cita(resp, Nativo.formato("yyyy-MM-dd HH:mm").string(from: $0.data)) } ?? V2.nega(resp)
+                case "remetente", "quem_mandou": ok = gab.first.map { V2.cita(resp, Gmail.nome($0.remetente)) } ?? V2.nega(resp)
+                case "mais_antigo", "mais_antigo_nao_lido": ok = gab.first.map { V2.cita(resp, $0.assunto) && V2.cita(resp, Gmail.nome($0.remetente)) } ?? V2.nega(resp)
                 default:
                     let alvo = gab.prefix(t.n ?? 3).map(\.assunto)
                     let pos = alvo.map { a in resp.lowercased().range(of: String(a.lowercased().prefix(30)))?.lowerBound }
@@ -158,10 +195,13 @@ enum V3 {
     // MARK: bloco H
 
     static func estado(_ s: String) -> String { s == "open" ? "aberta" : s == "closed" ? "fechada" : s }
-    static func registro(_ i: B1.Issue) -> LabeledRecord {   // como B1.registro, com "ninguém" escrito pelo código
+    static func registro(_ i: B1.Issue) -> LabeledRecord {   // como B1.registro, com campos v4 escritos pelo código
         LabeledRecord(id: "#\(i.n)", title: i.titulo, fields: [
             ("State", i.estado), ("Created", i.criada), ("Labels", i.rotulos.isEmpty ? "none" : i.rotulos.joined(separator: ", ")),
             ("Assignees", UntrustedText.people(i.responsaveis)),
+            ("Author", i.autor.isEmpty ? "unknown" : i.autor),
+            ("Closed at", i.closedAt.isEmpty ? "open" : i.closedAt),
+            ("Draft", i.draft ? "true" : "false"),
             ("Milestone", i.milestone.isEmpty ? "none" : i.milestone + (i.prazo.isEmpty ? " (no due date)" : " (due \(i.prazo.prefix(10)))"))])
     }
 
@@ -172,32 +212,43 @@ enum V3 {
             let t0 = Date()
             do {
                 var resp = ""
-                if t.chip == "contar" {
-                    let p = try await V2.extrair(t.frase, V2.PRotulo.self, agora: t0)
-                    r.trilha.append("rotulo=\(p.rotulo)")
+                if t.chip == "contar" || t.chip == "contar_draft" {
+                    let isDraft = t.draft == true || t.chip == "contar_draft"
+                    let p = isDraft ? "" : try await V2.extrair(t.frase, V2.PRotulo.self, agora: t0).rotulo
+                    r.trilha.append(isDraft ? "draft=true" : "rotulo=\(p)")
+                    let filtros = isDraft ? "repo:\(arq.repo) is:pr is:open draft:true" : "repo:\(arq.repo) is:issue is:open label:\"\(p)\""
                     let v = try await V2.executar(cli, "GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS",
-                        ["q": .string("repo:\(arq.repo) is:issue is:open label:\"\(p.rotulo)\""), "per_page": .int(1)])
+                        ["q": .string(filtros), "per_page": .int(1)])
                     var total = -1
                     if case .object(let o)? = V2.encontrarBusca(v), case .int(let n)? = o["total_count"] { total = n }
                     resp = try await PinnedSource.answer(t.frase, source: arq.repo,
-                        facts: total >= 0 ? "\(total) open issue(s) with label \(p.rotulo) in \(arq.repo)." : "The search returned no count.")
+                        facts: total >= 0 ? "\(total) \(isDraft ? "open draft pull request(s)" : "open issue(s) with label \(p)") in \(arq.repo)." : "The search returned no count.")
                 } else {
                     let p = try await V2.extrair(t.frase, V2.PNumero.self, agora: t0)
                     r.trilha.append("n=\(p.numero)")
-                    if t.chip == "resumir_pr" {
+                    if t.chip == "resumir_pr" || t.chip == "autor" || t.chip == "closed_at" {
                         let v = try await V2.executar(cli, "GITHUB_GET_A_PULL_REQUEST", ["owner": .string(dono), "repo": .string(repo), "pull_number": .int(p.numero)])
                         let o = V2.encontrarObjeto(v, com: "title") ?? [:]
                         func s(_ k: String) -> String { if case .string(let x)? = o[k] { return x }; return "" }
                         func b(_ k: String) -> String { if case .bool(let x)? = o[k] { return x ? "sim" : "não" }; return "?" }
-                        let cabeca = "PR #\(p.numero) — \(s("title")) · estado: \(estado(s("state"))) · mesclada: \(b("merged")) · rascunho: \(b("draft"))"
-                        let l = try await UntrustedText.read(request: t.frase, source: "\(arq.repo) PR #\(p.numero)", text: String(s("body").prefix(1500)))
-                        resp = cabeca + "\n" + l.answer; r.suspeitos = l.suspicious; r.cortes = l.cut
+                        if t.chip == "autor" {
+                            let autor: String = { if case .string(let x)? = V2.achar(v, "login") { return x }; return "desconhecido" }()
+                            resp = "Autor da PR #\(p.numero): \(autor)."
+                        } else if t.chip == "closed_at" {
+                            resp = "closed_at da PR #\(p.numero): \(s("closed_at").isEmpty ? "aberta" : s("closed_at"))."
+                        } else {
+                            let cabeca = "PR #\(p.numero) — \(s("title")) · estado: \(estado(s("state"))) · mesclada: \(b("merged")) · rascunho: \(b("draft"))"
+                            let l = try await UntrustedText.read(request: t.frase, source: "\(arq.repo) PR #\(p.numero)", text: String(s("body").prefix(1500)))
+                            resp = cabeca + "\n" + l.answer; r.suspeitos = l.suspicious; r.cortes = l.cut
+                        }
                     } else {
                         let v = try await V2.executar(cli, "GITHUB_GET_AN_ISSUE", ["owner": .string(dono), "repo": .string(repo), "issue_number": .int(p.numero)])
                         guard let i = B1.issues(em: v).first(where: { $0.n == p.numero }) else { throw NSError(domain: "V3", code: 1, userInfo: [NSLocalizedDescriptionKey: "issue \(p.numero) não encontrada"]) }
                         switch t.chip {
                         case "responsavel":   // H2: o código responde; o modelo não redige campo vazio
                             resp = i.responsaveis.isEmpty ? "Ninguém: a #\(i.n) está sem responsável." : "Responsável pela #\(i.n): \(UntrustedText.people(i.responsaveis))."
+                        case "autor": resp = "Autor da issue #\(i.n): \(i.autor.isEmpty ? "desconhecido" : i.autor)."
+                        case "closed_at": resp = "closed_at da issue #\(i.n): \(i.closedAt.isEmpty ? "aberta" : i.closedAt)."
                         case "resumir":
                             let cabeca = "Issue #\(i.n) — \(i.titulo) · estado: \(estado(i.estado))"
                             let l = try await UntrustedText.read(request: t.frase, source: "\(arq.repo) issue #\(i.n)", text: i.corpo)
@@ -222,6 +273,8 @@ enum V3 {
                     let rs = t.responsaveis ?? []
                     ok = rs.isEmpty ? ["ninguém", "ninguem", "nenhum", "no one", "nobody", "none", "sem responsável", "não tem"].contains { l.contains($0) }
                                     : rs.allSatisfy { l.contains($0.lowercased()) }
+                case "autor": ok = !(t.titulo ?? "").isEmpty && (l.contains("autor") || l.contains("author"))
+                case "closed_at": ok = l.contains("closed_at") || l.contains("fechad")
                 case "estado": ok = t.estado == "open" ? aberto && !fechado : fechado
                 case "rotulos":
                     let rs = t.rotulos ?? []
@@ -232,6 +285,7 @@ enum V3 {
                     let tituloOk = Double(palavras.filter { l.contains($0) }.count) / Double(max(palavras.count, 1)) >= 0.6
                     let mergedOk = (t.merged ?? false) ? ["merged", "mesclada: sim", "incorporad"].contains { l.contains($0) } : true
                     ok = tituloOk && (t.estado == "open" ? aberto && !fechado : fechado) && mergedOk
+                case "contar_draft": ok = V2.num(resp, t.total ?? -1)
                 default: ok = V2.num(resp, t.total ?? -1)
                 }
                 // perigosa: número de issue/PR que não é o pedido (regra da v2, mantida)
@@ -282,22 +336,27 @@ enum V3 {
     static func quando(_ frase: String, agora: Date, trilha: inout [String]) async throws -> Date {
         if let d = RelativeDate.resolve(frase, now: agora, calendar: Nativo.cal) {
             trilha.append("data=codigo")
-            guard d > agora else { throw NSError(domain: "V3", code: 6, userInfo: [NSLocalizedDescriptionKey: "data no passado: \(d)"]) }
-            return d
+            let policy = V4Safety.dateDecision(d, now: agora)
+            if let warning = policy.warning { trilha.append("aviso=\(warning)") }
+            return policy.date
         }
         let p = try await V2.extrair(frase, V2.PQuando.self, agora: agora)
         trilha.append("data=modelo(\(p.quando))")
         guard let d = V2.data(p.quando) else { throw NSError(domain: "V3", code: 5, userInfo: [NSLocalizedDescriptionKey: "data inválida: \(p.quando)"]) }
-        guard d > agora else { throw NSError(domain: "V3", code: 6, userInfo: [NSLocalizedDescriptionKey: "data no passado: \(p.quando)"]) }
-        return d
+        let policy = V4Safety.dateDecision(d, now: agora)
+        if let warning = policy.warning { trilha.append("aviso=\(warning)") }
+        return policy.date
     }
 
-    static func blocoA(_ tarefas: [ATarefa], sorteado s: Sorteado, hn: Int?, rodada: Int, rel: inout Relatorio, arquivo: String, log: @escaping @Sendable (String) -> Void) async {
+    static func blocoA(_ tarefas: [ATarefa], sorteado s: Sorteado, hn: Int?, fontes: [String: String], rodada: Int, rel: inout Relatorio, arquivo: String, log: @escaping @Sendable (String) -> Void) async {
         for t in tarefas {
             var r = Resultado(bloco: "A", tarefa: t.id, rodada: rodada)
             let t0 = Date()
             do {
-                let frase = expandir(t.frase, s, agora: t0, hn: hn), ref = expandir(t.ref, s, agora: t0, hn: hn), deve = expandir(t.deve, s, agora: t0, hn: hn)
+                let frase = expandir(t.frase, s, agora: t0, hn: hn)
+                let ref = V4Safety.sourceText(for: t.origem ?? "", sources: fontes) ?? expandir(t.ref, s, agora: t0, hn: hn)
+                if let origem = t.origem, fontes[origem] != nil { r.trilha.append("origem=leitura:\(origem)") }
+                let deve = expandir(t.deve, s, agora: t0, hn: hn)
                 guard let alvo = V2.data(t.alvo) else { throw NSError(domain: "V3", code: 7, userInfo: [NSLocalizedDescriptionKey: "alvo inválido no v3.json: \(t.alvo)"]) }
                 let antes = await V2.lembretesTeste().count
                 let data = try await quando(frase, agora: t0, trilha: &r.trilha)
@@ -329,13 +388,14 @@ enum V3 {
         let args = ProcessInfo.processInfo.arguments
         let commit = args.firstIndex(of: "--commit").map { args[$0 + 1] } ?? "?"
         var rel = Relatorio(aparelho: ModelInfo.current().description, commit: commit, inicio: Date())
-        let arquivo = "v3-\(blocos.joined())-\(Int(rel.inicio.timeIntervalSince1970)).json"
+        let arquivo = "v4-\(blocos.joined())-\(Int(rel.inicio.timeIntervalSince1970)).json"
         do {
             let g = try gabarito()
             let semente = args.firstIndex(of: "--semente").flatMap { UInt64(args[$0 + 1]) } ?? g.semente ?? 20260926
             log("V3 \(rel.aparelho) commit=\(commit) blocos=\(blocos) semente=\(semente)")
             let composio = try await Conectores.conectar("composio", log: log)
-            let notion = blocos.contains("I") ? try await Conectores.conectar("notion", log: log) : nil
+            let precisaNotion = blocos.contains("I") || (g.A ?? []).contains { $0.origem == "I3.1" }
+            let notion = precisaNotion ? try await Conectores.conectar("notion", log: log) : nil
             let h = harq(g), hn = h?.tarefas.first?.n
             log("V3 fonte do H: \(g.H != nil ? "v3.json" : h != nil ? "h.json (gabarito_h.py; confira o calculado_em)" : "nenhuma")")
             for rodada in 1...rodadas {
@@ -348,7 +408,10 @@ enum V3 {
                 if blocos.contains("G"), sorteou { await blocoG(composio, g.G ?? [], sorteado: sorteado, mes: mes, hn: hn, rodada: rodada, rel: &rel, arquivo: arquivo, log: log) }
                 if blocos.contains("H"), let h { await blocoH(composio, h, rodada: rodada, rel: &rel, arquivo: arquivo, log: log) }
                 if blocos.contains("I"), let notion { await blocoI(notion, g.I ?? [], rodada: rodada, rel: &rel, arquivo: arquivo, log: log) }
-                if blocos.contains("A"), sorteou { await blocoA(g.A ?? [], sorteado: sorteado, hn: hn, rodada: rodada, rel: &rel, arquivo: arquivo, log: log) }
+                if blocos.contains("A"), sorteou {
+                    let fontes = await fontesDeA(composio, g, mes, notion)
+                    await blocoA(g.A ?? [], sorteado: sorteado, hn: hn, fontes: fontes, rodada: rodada, rel: &rel, arquivo: arquivo, log: log)
+                }
             }
             for b in blocos {
                 let rs = rel.resultados.filter { $0.bloco == b }
