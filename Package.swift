@@ -13,6 +13,12 @@ let package = Package(
                 swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(name: "HelloAgentCLI", dependencies: ["PhoneAgentKit"],
                           swiftSettings: [.swiftLanguageMode(.v5)]),
+        // Compila o motor real da bateria; os testes usam apenas fixtures e gravação em memória.
+        .target(name: "BateriaCore", dependencies: ["PhoneAgentKit", .product(name: "MCP", package: "swift-sdk")],
+                path: "Bateria/App", exclude: ["BateriaApp.swift", "Info.plist"],
+                swiftSettings: [.swiftLanguageMode(.v5), .enableUpcomingFeature("BareSlashRegexLiterals")]),
+        .testTarget(name: "BateriaCoreTests", dependencies: ["BateriaCore"],
+                    swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(name: "PhoneAgentKitTests", dependencies: ["PhoneAgentKit"],
                     swiftSettings: [.swiftLanguageMode(.v5)]),
     ]

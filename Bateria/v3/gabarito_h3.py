@@ -26,7 +26,7 @@ def gabarito(nums):
         "H3": {"n": nums[2], "autor": i3['user']['login']},
         "H4": {"n": nums[3], "titulo": p['title'], "estado": p['state'], "merged": bool(p.get('merged')), "draft": bool(p.get('draft')),
                "corpo": p.get('body') or "", "autor": p['user']['login']},
-        "H5": {"n": nums[4], "fechada_em_sp": fech, "estado": i5['state']},
+        "H5": {"n": nums[4], "fechada_em_sp": fech, "closed_at": i5['closed_at'], "estado": i5['state']},
         "H6": {"total": draft_total()},
     }
 

@@ -211,7 +211,8 @@ enum V2 {
     // MARK: bloco H (gabarito do gh, em h.json)
 
     struct H: Codable { let id: String; let chip: String; let frase: String; let n: Int?; let titulo: String?; let estado: String?
-                        let responsaveis: [String]?; let rotulos: [String]?; let merged: Bool?; let draft: Bool?; let rotulo: String?; let total: Int? }
+                        let responsaveis: [String]?; let rotulos: [String]?; let merged: Bool?; let draft: Bool?; let rotulo: String?; let total: Int?
+                        let autor: String?; let closed_at: String? }
     struct HArq: Codable { let repo: String; let rotulos_do_repo: [String]; let tarefas: [H] }
 
     static func blocoH(_ cli: Client, rodada: Int, rel: inout Relatorio, arquivo: String, log: @escaping @Sendable (String) -> Void) async {
