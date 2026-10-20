@@ -2,15 +2,20 @@
 Chama GMAIL_FETCH_EMAILS pelo app (`--exec`, Composio, só leitura), 20 por página, últimos 30 dias.
 Guarda SÓ id, remetente, assunto, data (epoch) e não lido. A resposta crua (que traz trecho de corpo) é apagada
 a cada página e nunca é impressa. Saída: Bateria/brutos/mac-v4/meta-gmail-<epoch>.json (fora do git).
-Uso: python3 -I coletar_meta_gmail.py <runapp.sh>"""
+Uso: python3 -I coletar_meta_gmail.py <runapp.sh> [<meta anterior.json>]
+Com o arquivo anterior, continua a janela: busca só antes da mensagem mais antiga dele e une os dois (o limite de 40 páginas
+por chamada não cobre 30 dias numa caixa cheia)."""
 import json, os, subprocess, sys, tempfile, time
 RUN = sys.argv[1]
 DOC = os.path.expanduser('~/Documents/BateriaB/composio-exec.json')
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'brutos', 'mac-v4')
-agora = int(time.time()); desde = agora - 30 * 86400
+agora = int(time.time()); desde = agora - 30 * 86400; antes = None
 msgs, token, pag = {}, None, 0
+if len(sys.argv) > 2:
+    ant = json.load(open(sys.argv[2])); agora = ant['coletado_em']; desde = agora - 30 * 86400
+    msgs = {m['id']: m for m in ant['mensagens']}; antes = min(m['ts'] for m in ant['mensagens'] if m['ts']) + 1
 while True:
-    args = {"query": f"after:{desde}", "max_results": 20, "include_payload": False, "verbose": False}
+    args = {"query": f"after:{desde}" + (f" before:{antes}" if antes else ""), "max_results": 20, "include_payload": False, "verbose": False}
     if token: args["page_token"] = token
     if os.path.exists(DOC): os.remove(DOC)
     subprocess.run([RUN, os.path.join(tempfile.gettempdir(), 'meta.log'),
