@@ -1,0 +1,47 @@
+# Congelamento do agente v4
+
+Este manifesto congela o agente antes de qualquer leitura ou execução de tarefas cegas novas. A bateria v4 ainda não foi rodada.
+
+- **Commit de congelamento:** `1a38902ebb3bddc0f5c160a22de36624f3422d00` (`Adiciona proteções e chips do agente v4`)
+- **Branch:** `feat/agente-v4`
+- **Regra:** após este ponto, tarefas novas e seus gabaritos devem receber hash próprio antes da primeira chamada ao agente.
+
+## Arquivos congelados e SHA-256
+
+Escopo: `Package.swift`, `Bateria/project.yml`, os fontes do app Bateria, os fontes do pacote PhoneAgentKit, os testes do pacote e o roteiro v4. O próprio `CONGELAMENTO.md` não entra na lista para evitar uma soma autorreferente.
+
+```text
+16b5b316b518c762aa53bd5bcf7c6256c2056a70123470e21f0fe9a89fe73195  Bateria/App/B1.swift
+4e0421c035e53652d1a8c17092e81267b83a5ba07e68eebc3da8665ba71645f5  Bateria/App/B4.swift
+8bc00b2ad136d777c9c94a1e267705c7c0e8884c3663e886b533ef328aac1127  Bateria/App/B5.swift
+24be59740b5754d82185ea8162c4ba7effe00a56216969e6a5c0fa135a630a9f  Bateria/App/B6.swift
+f2fa9db60146f7e61d1ce31ecd869fcd30efb6c1222bf2d4ed15bea3a1aa6781  Bateria/App/BateriaApp.swift
+a910bc9a17470f915717ed31a55f0f7a64abcd4e1e00f0ff41ed78c790c8026a  Bateria/App/Composio.swift
+56f97da4ff1e21eed5b99114bf6d5edf5d6e3b99b4fe043f439c2cef96f49466  Bateria/App/Conectores.swift
+e61266993357af17dbfb82afabe775046cd24c4844e343dfce57944703447134  Bateria/App/Gmail.swift
+0eaf2325cf9f39ad445afaa4db18c8d0d5ea3fedc54b58e2d61153f23418435d  Bateria/App/Info.plist
+4f5b5c017c6f26baf708473ff3997aafc50440714c1cf55aafa0e0e346e4a3bc  Bateria/App/Nativo.swift
+4e5cd516ee1b07fe015c4c6923450f55d5f811d5af50d9fefbb66783c1fd9f22  Bateria/App/V2.swift
+bda4479709c2430eebfca72c313bf19f48f1691203bd69a2a520324a12c5b09b  Bateria/App/V3.swift
+f226f6db382c7509b921291dfc98fcde63e194b1027ffd002ecdbb2396529e88  Bateria/App/V4.swift
+20102c1efcff08635d75930218bcbd8d678d0c95168ab770f712f50f373f2f48  Bateria/project.yml
+a239930fa953dc13f69f6daeef6c7b9f030d7376b7daf631ba992b4d622f64da  Package.swift
+0561f66a755b3d8618f6ffbde6253213b7e403b749d318bd35eaadfbfcbbd855  Sources/HelloAgentCLI/main.swift
+4d5ab9cc07d13d81645125bee562aa4e15c7d415848cba32bf03107327bf0b41  Sources/PhoneAgentKit/HelloAgent.swift
+5d21ba18c16ffbab14aa68a3cf36cf2621df91c19d0f6fb6867993e77ea7428d  Sources/PhoneAgentKit/MCPBridge.swift
+5d322cf06c7c2eaedca81abb422b0cba2d4d8f0014484e074a682896e0919b76  Sources/PhoneAgentKit/MarkdownSections.swift
+b014d41e59fbed1038f1bccc4f0f1fb6626a9edb4cdf60e5f853f0bf8b11e558  Sources/PhoneAgentKit/ModelInfo.swift
+8391d3729652d8e499fe55f4278eb5eef998ae4b6c659b8ed96c1d4b66ce8183  Sources/PhoneAgentKit/NativeOAuth.swift
+9a13ecd0f5392036b62930b4ee684ccdecb29ed75407762e494f8c17ce1821ae  Sources/PhoneAgentKit/PinnedSource.swift
+eaa9b258ae9a313f8ae44abf529e47559bbfe3f0d3c384c4f71b6bbafd580f20  Sources/PhoneAgentKit/Reader.swift
+ae7a5e8e3c5084e980b638ffa4ab748fc0f681036031440f50805b8097ad665b  Sources/PhoneAgentKit/RelativeDate.swift
+fbc84e78b3da73c1a757dab2a5d3e334c691af1aa213e0763c3a3673c8973c92  Sources/PhoneAgentKit/TokenStore.swift
+fd22dbe336b41d3ff36d15e00f084c513ae6ef2c32896614742605b153191f18  Sources/PhoneAgentKit/ToolTrimming.swift
+871ecbe5a2c5cbe709a6a7d3da9243c956761a31e01ca814f3cb46c7cceb9046  Sources/PhoneAgentKit/UntrustedText.swift
+9eecc37ba80fcb5c878e33629df47d76cc824b3bae2cc7424b14f4842d2dbef8  Sources/PhoneAgentKit/V4Safety.swift
+a7734a31f239477ae2880d7ba36c307229222fb0aea4f3e11b1d78546315a167  Tests/PhoneAgentKitTests/PhoneAgentKitTests.swift
+884fb8d467986144b533054e02188a34059cae7b3f26421fa8da2831fad38eb7  Tests/PhoneAgentKitTests/UntrustedTextTests.swift
+42032bb2125c69315f17ad16e54abf4e6e31b11bdc2d8cb3ade16dcf1aeeafa2  Bateria/v4/ROTEIRO.md
+```
+
+O token do Composio é renovado apenas no roteiro, antes de cada bloco; ele não é gravado no repositório.
