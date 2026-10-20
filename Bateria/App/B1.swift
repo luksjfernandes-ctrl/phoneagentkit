@@ -13,7 +13,7 @@ enum B1 {
     struct Arquivo: Codable { let repo: String; let tarefas: [Tarefa] }
     struct Issue { let n: Int; let titulo: String; let estado: String; let criada: String; let rotulos: [String]
                    let responsaveis: [String]; let milestone: String; let prazo: String; let corpo: String
-                   let autor: String; let closedAt: String; let draft: Bool }
+                   let autor: String; let closedAt: String; let draft: Bool; var pr = false }
     struct Resultado: Codable { let tarefa: String; let rodada: Int; var trilha: [String] = []; var resposta = ""; var erro: String?; var segundos = 0.0 }
 
     static let listar = "GITHUB_LIST_REPOSITORY_ISSUES", obter = "GITHUB_GET_AN_ISSUE"
@@ -28,7 +28,9 @@ enum B1 {
     }
 
     /// Acha objetos de issue ("number" + "title") em qualquer ponto da resposta; descarta PRs.
-    static func issues(em v: Value) -> [Issue] {
+    /// `incluirPRs`: a rota de issue do GitHub também devolve PR (com o campo `pull_request`). v5: o H lê autor e
+    /// closed_at de PR por ela, e a lista pagina pelo tamanho cru da página.
+    static func issues(em v: Value, incluirPRs: Bool = false) -> [Issue] {
         var out: [Issue] = []
         func s(_ o: [String: Value], _ k: String) -> String { if case .string(let x)? = o[k] { return x }; return "" }
         func visitar(_ v: Value) {
@@ -37,7 +39,8 @@ enum B1 {
                 // o JSON pode chegar com o número como inteiro ou como double, conforme o decodificador
                 let numero: Int? = { switch o["number"] { case .int(let n)?: return n; case .double(let d)?: return Int(d); default: return nil } }()
                 if let n = numero, o["title"] != nil {
-                    if o["pull_request"] == nil || o["pull_request"] == .null {
+                    let ehPR = !(o["pull_request"] == nil || o["pull_request"] == .null)
+                    if !ehPR || incluirPRs {
                         var rot: [String] = [], resp: [String] = [], ms = "", prazo = "", autor = "", closedAt = ""
                         var draft = false
                         if case .array(let ls)? = o["labels"] { rot = ls.compactMap { if case .object(let l) = $0 { return s(l, "name") }; return nil } }
@@ -48,7 +51,7 @@ enum B1 {
                         if case .bool(let d)? = o["draft"] { draft = d }
                         out.append(Issue(n: n, titulo: s(o, "title"), estado: s(o, "state"), criada: String(s(o, "created_at").prefix(10)),
                                          rotulos: rot, responsaveis: resp, milestone: ms, prazo: prazo, corpo: String(s(o, "body").prefix(1200)),
-                                         autor: autor, closedAt: closedAt, draft: draft))
+                                         autor: autor, closedAt: closedAt, draft: draft, pr: ehPR))
                     }
                     return
                 }
