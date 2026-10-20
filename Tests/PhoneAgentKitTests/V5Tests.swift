@@ -174,3 +174,42 @@ import Testing
         #expect(itens == (1...60).filter { $0 % 3 == 0 })
     }
 }
+
+/// Issue #3: respostas gravadas do Composio (GITHUB_LIST_REPOSITORY_ISSUES em pola-rs/polars, público, 20/10/2026,
+/// só número, título, estado, autor e marca de PR). Com 10 por página o Composio devolve o data_preview; com 2, a página.
+@Suite struct ComposioPagingRecordedTests {
+    static func gravada(_ nome: String) throws -> String {
+        let url = try #require(Bundle.module.url(forResource: nome, withExtension: "json", subdirectory: "Resources"))
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+    static func itens(_ raw: String) throws -> [(n: Int, pr: Bool)] {
+        let o = try JSONSerialization.jsonObject(with: Data(raw.utf8))
+        var out: [(Int, Bool)] = []
+        func visitar(_ v: Any) {
+            if let d = v as? [String: Any] {
+                if let n = d["number"] as? Int, d["title"] != nil { out.append((n, !(d["pull_request"] == nil || d["pull_request"] is NSNull))); return }
+                d.values.forEach(visitar)
+            } else if let a = v as? [Any] { a.forEach(visitar) }
+        }
+        visitar(o)
+        return out
+    }
+
+    @Test func recordedPreviewIsDetectedAndThePageIsRequestedSmaller() async throws {
+        let cortada = try Self.gravada("composio-github-list-per10"), inteira = try Self.gravada("composio-github-list-per2")
+        #expect(ComposioPaging.isTruncated(cortada))
+        #expect(!ComposioPaging.isTruncated(inteira))
+        let pagina2 = try Self.itens(inteira)
+        #expect(pagina2.count == 2)
+        var tamanhos: [Int] = []
+        let issues = try await ComposioPaging.collect(pageSize: 10, maxItems: 2) { r -> ComposioPaging.Page<Int> in
+            tamanhos.append(r.pageSize)
+            let raw = r.pageSize > 2 ? cortada : inteira
+            if ComposioPaging.isTruncated(raw) { return .init(items: [], hasMore: true, truncated: true) }
+            let crus = try Self.itens(raw)
+            return .init(items: crus.filter { !$0.pr }.map(\.n), hasMore: false, consumed: crus.count)
+        }
+        #expect(tamanhos == [10, 5, 2])
+        #expect(issues == pagina2.filter { !$0.pr }.map(\.n))
+    }
+}
