@@ -29,7 +29,7 @@ public struct NativeOAuth: Sendable {
 
     public func authorize(server: URL, presenter: any OAuthAuthorizationDelegate) async throws -> OAuthToken {
         // 1. Descoberta: recurso protegido → servidor de autorização → endpoints
-        let root = URL(string: "\(server.scheme ?? "https")://\(server.host ?? "")")!
+        let root = Self.discoveryRoot(for: server)
         let resource = (try? await Self.json(root.appending(path: ".well-known/oauth-protected-resource"))) ?? [:]
         let issuer = (resource["authorization_servers"] as? [String])?.first.flatMap(URL.init(string:)) ?? root
         let meta = try await Self.json(issuer.appending(path: ".well-known/oauth-authorization-server"))
@@ -68,6 +68,11 @@ public struct NativeOAuth: Sendable {
             throw NativeOAuthError.tokenRejected("\(tok["error"] ?? "?") \(tok["error_description"] ?? "")")
         }
         return OAuthToken(accessToken: access, expiresIn: tok["expires_in"] as? Int)
+    }
+
+    /// Origem do servidor MCP, onde a descoberta procura `.well-known` (pura, testável).
+    static func discoveryRoot(for server: URL) -> URL {
+        URL(string: "\(server.scheme ?? "https")://\(server.host ?? "")")!
     }
 
     /// Monta a URL de autorização (pura, testável).
