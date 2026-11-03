@@ -60,12 +60,21 @@ public enum UntrustedText {
     static let reNominal = try! NSRegularExpression(pattern: acaoNominal)
     /// Radicais para liberar a forma nominal quando o próprio pedido do usuário usa o verbo.
     static let radicais = ["apag", "exclu", "delet", "remov", "remoc", "transf", "autoriz", "authori", "encaminh", "compartilh", "forward"]
-    /// Formas nominais da frase cujo radical não está no pedido do usuário.
+    /// Formas nominais da frase cuja ação o pedido do usuário não menciona.
     static func nominaisForaDoPedido(_ frase: String, request: String) -> [String] {
-        let pedido = dobrado(request)
+        let liberados = radicaisDoPedido(request)
         let ns = frase as NSString
         return reNominal.matches(in: frase, range: NSRange(location: 0, length: ns.length)).map { dobrado(ns.substring(with: $0.range)) }
-            .filter { w in !(radicais.first { w.hasPrefix($0) }.map { pedido.contains($0) } ?? false) }
+            .filter { w in !(radicais.first { w.hasPrefix($0) }.map { liberados.contains($0) } ?? false) }
+    }
+    /// Radicais de ação que o pedido usa como ação: forma nominal ("o que foi apagado?") ou verbo da lista
+    /// ("exclua a pasta"). Conter o radical em outra palavra não basta: "transforme" não é "transferir",
+    /// "exclusivos" não é "excluir".
+    static func radicaisDoPedido(_ request: String) -> Set<String> {
+        let ns = request as NSString
+        var palavras = reNominal.matches(in: request, range: NSRange(location: 0, length: ns.length)).map { dobrado(ns.substring(with: $0.range)) }
+        for lema in pedidos(request) { palavras += ([lema] + (verbos[lema] ?? [])).map(dobrado) }
+        return Set(radicais.filter { r in palavras.contains { $0.hasPrefix(r) } })
     }
     static let pedidoIndireto = #"(?i)(?<![\p{L}])(para|pede|pediu|pedem|pedindo|solicita|solicitou|solicitam|manda|mandou|instrui|instruiu|autoriza|autorizou|autorizado|autorizada|precisa|precisam|deve|devem|asks?|asked|you to|wants?|needs? to|must|should)\s+(?:[\p{L}\p{N}'"“”]+\s+){0,3}$"#
 
@@ -96,16 +105,19 @@ public enum UntrustedText {
         for (lema, formas) in verbos {
             for f in formas {
                 let limite = #"(?<![\p{L}\p{N}])"# + NSRegularExpression.escapedPattern(for: f) + #"(?![\p{L}\p{N}])"#
-                guard let r = l.range(of: limite, options: .regularExpression) else { continue }
-                if soNoInicio(f) {
+                guard let re = try? NSRegularExpression(pattern: limite) else { continue }
+                // todas as ocorrências: a 1ª pode ser fato no meio da frase e a 2ª, ordem depois de ":" ou ";"
+                let conta = re.matches(in: l, range: NSRange(l.startIndex..., in: l)).contains { m in
+                    guard let r = Range(m.range, in: l) else { return false }
+                    guard soNoInicio(f) else { return true }
                     // começo da frase, ou depois de ":", "-", "•", "*", "(", aspas ou número de item ("1.", "2)")
                     let antes = l[l.startIndex..<r.lowerBound]
                     let resto = antes.reversed().drop { $0 == " " }
                     let inicio = resto.isEmpty || ":-•*(\"“'\n;".contains(resto.first!) || tem(String(antes), #"(^|\s)\d+[.)]\s*$"#)
                         || tem(String(antes), #"(?i)(por favor|please|favor|voc[eê] deve|you must|you should|deve-se|é necessário)\s*$"#)
-                    if !inicio && !(perigosos.contains(lema) && tem(String(antes), pedidoIndireto)) { continue }
+                    return inicio || (perigosos.contains(lema) && tem(String(antes), pedidoIndireto))
                 }
-                out.append((lema, f))
+                if conta { out.append((lema, f)) }
             }
         }
         return out
