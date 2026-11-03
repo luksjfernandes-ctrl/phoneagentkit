@@ -71,8 +71,12 @@ public struct NativeOAuth: Sendable {
     }
 
     /// Origem do servidor MCP, onde a descoberta procura `.well-known` (pura, testável).
+    /// Mantém esquema, host e PORTA; tira caminho, consulta, fragmento e credenciais.
     static func discoveryRoot(for server: URL) -> URL {
-        URL(string: "\(server.scheme ?? "https")://\(server.host ?? "")")!
+        var c = URLComponents(url: server, resolvingAgainstBaseURL: false) ?? URLComponents()
+        c.path = ""; c.query = nil; c.fragment = nil; c.user = nil; c.password = nil
+        if c.scheme == nil { c.scheme = "https" }
+        return c.url ?? server
     }
 
     /// Monta a URL de autorização (pura, testável).
