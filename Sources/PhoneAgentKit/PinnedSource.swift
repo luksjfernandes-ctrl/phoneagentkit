@@ -81,8 +81,8 @@ public enum PinnedSource {
     /// para que a Siri leia só a resposta.
     public static func trimMeta(_ text: String) -> String {
         let markers = ["what is missing", "what's missing", "o que falta", "missing information"]
-        let lower = text.lowercased()
-        guard let cut = markers.compactMap({ lower.range(of: $0)?.lowerBound }).min() else { return text }
+        // busca na própria string: um índice de `text.lowercased()` não vale em `text` quando a minúscula muda de tamanho ("İ")
+        guard let cut = markers.compactMap({ text.range(of: $0, options: .caseInsensitive)?.lowerBound }).min() else { return text }
         let head = String(text[..<cut]).trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters.subtracting(CharacterSet(charactersIn: ".!?"))))
         return head.isEmpty ? text : head
     }
