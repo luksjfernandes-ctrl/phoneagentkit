@@ -35,14 +35,16 @@ extension MarkdownSections {
     /// títulos erra; um de poucos acerta.
     /// Palavras da pergunta que contam (mais de 3 letras, sem acento).
     public static func keywords(_ question: String) -> Set<String> {
-        Set(question.lowercased().folding(options: .diacriticInsensitive, locale: nil)
-            .components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.count > 3 })
+        Set(folded(question).components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.count > 3 })
     }
+
+    /// Minúsculo e sem acento: as palavras da pergunta saem assim, então título e corpo também precisam.
+    static func folded(_ s: String) -> String { s.lowercased().folding(options: .diacriticInsensitive, locale: nil) }
 
     /// Se exatamente um título contém uma palavra da pergunta, o código decide sem perguntar ao modelo.
     public static func uniqueTitleMatch(_ sections: [MarkdownSection], for question: String) -> Int? {
         let words = keywords(question)
-        let hits = sections.indices.filter { i in words.contains { sections[i].title.lowercased().contains($0) } }
+        let hits = sections.indices.filter { i in words.contains { folded(sections[i].title).contains($0) } }
         return hits.count == 1 ? hits[0] : nil
     }
 
@@ -50,7 +52,7 @@ extension MarkdownSections {
         let words = keywords(question)
         guard !words.isEmpty else { return Array(sections.prefix(limit)) }
         func score(_ s: MarkdownSection) -> Int {
-            let t = s.title.lowercased(), b = s.body.lowercased()
+            let t = folded(s.title), b = folded(s.body)
             return words.reduce(0) { $0 + (t.contains($1) ? 10 : 0) + min(b.components(separatedBy: $1).count - 1, 5) }
         }
         return sections.enumerated().sorted { (score($0.element), -$0.offset) > (score($1.element), -$1.offset) }
