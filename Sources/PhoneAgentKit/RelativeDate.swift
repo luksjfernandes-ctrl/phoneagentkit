@@ -18,6 +18,9 @@ public enum RelativeDate {
     ]
     /// Pistas de data que este resolvedor não entende: com elas, nil (e o chamador não inventa hoje/amanhã).
     static let naoEntendo = #"\b(mes|meses|month|months|ano que vem|proximo ano|next year|fim de|end of|feriado|holiday|vespera|eve)\b"#
+    /// Prazo contado em semanas, horas ou minutos ("daqui a 2 semanas", "in an hour"): também nil. Sem isto a frase
+    /// caía em "só a hora" e virava hoje (ou "2 horas" virava 02:00).
+    static let prazo = #"\b(?:daqui a|daqui|em|dentro de|in|within)\s+(?:\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|meia|a|an|one|two|three|four|five|six|seven|eight|nine|ten|a few|few|alguns|algumas)\s+(?:semanas?|weeks?|horas?|hours?|minutos?|minutes?|mins?)\b"#
     /// "semana que vem", "próxima semana", "next week": pedem um dia da semana junto (sem ele, nil).
     static let semanaQueVem = #"\b(semana que vem|proxima semana|next week)\b"#
 
@@ -54,7 +57,8 @@ public enum RelativeDate {
     /// - "daqui a N dias", "em N dias", "in N days": hoje + N; "dia N": o próximo dia N do mês que ainda não passou;
     /// - "dd/MM" e "14 de outubro": este ano, ou o próximo se já passou; "hoje"/"amanhã"/"depois de amanhã";
     /// - só a hora: hoje se ainda não passou, senão amanhã;
-    /// - mês que vem, fim de semana, feriado, véspera: nil (o chamador não inventa).
+    /// - mês que vem, fim de semana, feriado, véspera: nil (o chamador não inventa);
+    /// - prazo em semanas, horas ou minutos ("daqui a 2 semanas", "in an hour") e mês fora de 1…12: nil.
     /// "hoje às 8h" quando já são 10h devolve o horário passado: quem chama rejeita (não há futuro para "hoje").
     public static func resolve(_ frase: String, now: Date, calendar: Calendar) -> Date? {
         guard let (h, m) = time(frase) else { return nil }
@@ -63,12 +67,14 @@ public enum RelativeDate {
         func em(_ dia: Date) -> Date { calendar.date(bySettingHour: h, minute: m, second: 0, of: dia)! }
         func mais(_ n: Int, _ d: Date) -> Date { calendar.date(byAdding: .day, value: n, to: d)! }
 
-        if tem(s, naoEntendo) { return nil }
+        if tem(s, naoEntendo) || tem(s, prazo) { return nil }
         if let g = grupos(s, #"\b(?:daqui a|em|in)\s+(\d{1,2})\s+(?:dias?|days?)\b"#), let n = Int(g[1]) { return em(mais(n, hoje)) }
         if s.contains("depois de amanha") || s.contains("day after tomorrow") { return em(mais(2, hoje)) }
         if tem(s, #"\b(amanha|tomorrow)\b"#) { return em(mais(1, hoje)) }
         if tem(s, #"\b(hoje|today|tonight)\b"#) { return em(hoje) }
         if let g = grupos(s, #"(?<!\d)(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?(?![\d])"#), let d = Int(g[1]), let mes = Int(g[2]) {
+            // o Calendar rola mês 13 para janeiro do ano seguinte e mês 0 para dezembro: não existe, nil
+            guard (1...12).contains(mes) else { return nil }
             var c = calendar.dateComponents([.year], from: now)
             if let a = Int(g[3]) { c.year = a < 100 ? 2000 + a : a }
             c.month = mes; c.day = d; c.hour = h; c.minute = m
