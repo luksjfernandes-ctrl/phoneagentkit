@@ -25,6 +25,7 @@ struct ContentView: View {
                     }
                     Button("Composio · sonda (só leitura)") { Task { await run { await Composio.sonda(log: $0) } } }
                     Button("B5 · injeção (3 rodadas)") { Task { await run { await B5.rodar(log: $0) } } }
+                    Button("Bateria B · agente v4") { Task { await run { await V4.rodar(blocos: ["G", "H", "I", "A"], log: $0) } } }
                 }.disabled(running)
                 Section("Log") { ForEach(Array(lines.enumerated()), id: \.offset) { Text($0.element).font(.caption.monospaced()) } }
             }
@@ -50,6 +51,9 @@ struct ContentView: View {
             }
             if let i = a.firstIndex(of: "--v3"), i + 1 < a.count {
                 let b = a[i + 1].components(separatedBy: ","); await run { await V3.rodar(blocos: b, log: $0) }
+            }
+            if let i = a.firstIndex(of: "--v4"), i + 1 < a.count {
+                let b = a[i + 1].components(separatedBy: ","); await run { await V4.rodar(blocos: b, log: $0) }
             }
             if a.contains("--limpar-a") { await run { V2.limparA(log: $0) } }
             if a.contains("--gmail") { await run { await Gmail.rodar(log: $0) } }

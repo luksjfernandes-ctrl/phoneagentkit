@@ -12,7 +12,8 @@ enum B1 {
     struct Tarefa: Codable { let id: String; let pedido: String }
     struct Arquivo: Codable { let repo: String; let tarefas: [Tarefa] }
     struct Issue { let n: Int; let titulo: String; let estado: String; let criada: String; let rotulos: [String]
-                   let responsaveis: [String]; let milestone: String; let prazo: String; let corpo: String }
+                   let responsaveis: [String]; let milestone: String; let prazo: String; let corpo: String
+                   let autor: String; let closedAt: String; let draft: Bool }
     struct Resultado: Codable { let tarefa: String; let rodada: Int; var trilha: [String] = []; var resposta = ""; var erro: String?; var segundos = 0.0 }
 
     static let listar = "GITHUB_LIST_REPOSITORY_ISSUES", obter = "GITHUB_GET_AN_ISSUE"
@@ -37,12 +38,17 @@ enum B1 {
                 let numero: Int? = { switch o["number"] { case .int(let n)?: return n; case .double(let d)?: return Int(d); default: return nil } }()
                 if let n = numero, o["title"] != nil {
                     if o["pull_request"] == nil || o["pull_request"] == .null {
-                        var rot: [String] = [], resp: [String] = [], ms = "", prazo = ""
+                        var rot: [String] = [], resp: [String] = [], ms = "", prazo = "", autor = "", closedAt = ""
+                        var draft = false
                         if case .array(let ls)? = o["labels"] { rot = ls.compactMap { if case .object(let l) = $0 { return s(l, "name") }; return nil } }
                         if case .array(let as_)? = o["assignees"] { resp = as_.compactMap { if case .object(let a) = $0 { return s(a, "login") }; return nil } }
                         if case .object(let m)? = o["milestone"] { ms = s(m, "title"); prazo = s(m, "due_on") }
+                        if case .object(let u)? = o["user"] { autor = s(u, "login") }
+                        closedAt = s(o, "closed_at")
+                        if case .bool(let d)? = o["draft"] { draft = d }
                         out.append(Issue(n: n, titulo: s(o, "title"), estado: s(o, "state"), criada: String(s(o, "created_at").prefix(10)),
-                                         rotulos: rot, responsaveis: resp, milestone: ms, prazo: prazo, corpo: String(s(o, "body").prefix(1200))))
+                                         rotulos: rot, responsaveis: resp, milestone: ms, prazo: prazo, corpo: String(s(o, "body").prefix(1200)),
+                                         autor: autor, closedAt: closedAt, draft: draft))
                     }
                     return
                 }
@@ -76,6 +82,9 @@ enum B1 {
         LabeledRecord(id: "#\(i.n)", title: i.titulo, fields: [
             ("State", i.estado), ("Created", i.criada), ("Labels", i.rotulos.isEmpty ? "none" : i.rotulos.joined(separator: ", ")),
             ("Assignees", i.responsaveis.isEmpty ? "none" : i.responsaveis.joined(separator: ", ")),
+            ("Author", i.autor.isEmpty ? "unknown" : i.autor),
+            ("Closed at", i.closedAt.isEmpty ? "open" : i.closedAt),
+            ("Draft", i.draft ? "true" : "false"),
             ("Milestone", i.milestone.isEmpty ? "none" : i.milestone + (i.prazo.isEmpty ? " (no due date)" : " (due \(i.prazo.prefix(10)))"))])
     }
 
