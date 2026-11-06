@@ -1,0 +1,29 @@
+{
+ "successful": true,
+ "data": {
+  "results": [
+   {
+    "response": {
+     "successful": true,
+     "data_preview": {
+      "issues": [
+       {
+        "html_url": "https://github.com/pola-rs/polars/issues/30108"
+       },
+       {
+        "html_url": "https://github.com/pola-rs/polars/pull/30107"
+       },
+       "...8 more items"
+      ]
+     }
+    },
+    "tool_slug": "GITHUB_LIST_REPOSITORY_ISSUES",
+    "index": 0
+   }
+  ],
+  "total_count": 1,
+  "success_count": 1,
+  "error_count": 0
+ },
+ "error": null
+}

@@ -88,17 +88,38 @@ enum V2 {
 
     struct Msg { let remetente: String; let assunto: String; let data: Date; let naoLida: Bool }
 
+    /// v5: páginas de 20 pelo `ComposioPaging` (com 50 o Composio devolvia só o data_preview; se uma página de 20
+    /// vier cortada, ela é pedida de novo com 10, 5…). A v4 pedia 5 por página: a sonda de 30 dias levou horas.
     static func gmail(_ cli: Client, _ q: String, max: Int = 200) async throws -> [Msg] {
-        var todas: [Msg] = [], token: String?
-        repeat {
-            // 5 por página: com 50 a resposta passa do limite e o Composio devolve só o data_preview (encanamento, 25/09)
-            var a: [String: Value] = ["query": .string(q), "max_results": .int(5), "include_payload": .bool(false), "verbose": .bool(false)]
-            if let token { a["page_token"] = .string(token) }
-            let v = try await executar(cli, "GMAIL_FETCH_EMAILS", a)
-            todas += Gmail.mensagens(em: v).map { Msg(remetente: $0.remetente, assunto: $0.assunto, data: $0.data, naoLida: $0.naoLida) }
-            if case .string(let t)? = achar(v, "nextPageToken"), !t.isEmpty { token = t } else { token = nil }
-        } while token != nil && todas.count < max
+        let todas = try await ComposioPaging.collect(pageSize: Swift.min(20, Swift.max(max, 1)), maxItems: max) { req in
+            var a: [String: Value] = ["query": .string(q), "max_results": .int(req.pageSize), "include_payload": .bool(false), "verbose": .bool(false)]
+            if let c = req.cursor { a["page_token"] = .string(c) }
+            do {
+                let v = try await executar(cli, "GMAIL_FETCH_EMAILS", a)
+                let ms = Gmail.mensagens(em: v).map { Msg(remetente: $0.remetente, assunto: $0.assunto, data: $0.data, naoLida: $0.naoLida) }
+                var next: String?
+                if case .string(let t)? = achar(v, "nextPageToken"), !t.isEmpty { next = t }
+                return ComposioPaging.Page(items: ms, next: next, hasMore: next != nil)
+            } catch let e as NSError where e.domain == "V2" && e.code == 3 {
+                return ComposioPaging.Page(items: [], hasMore: true, truncated: true)
+            }
+        }
         return todas.sorted { $0.data > $1.data }
+    }
+
+    /// Issue #3: lista de issues do GitHub completa, paginada no código (10 por página, cai para 5, 2, 1 se cortar).
+    static func githubIssues(_ cli: Client, repo: String, state: String = "open", max: Int = 30) async throws -> [B1.Issue] {
+        let partes = repo.split(separator: "/").map(String.init)
+        return try await ComposioPaging.collect(pageSize: 10, maxItems: max) { req in
+            do {
+                let v = try await executar(cli, B1.listar, ["owner": .string(partes[0]), "repo": .string(partes[1]), "state": .string(state),
+                                                            "per_page": .int(req.pageSize), "page": .int(req.page)])
+                let crus = B1.issues(em: v, incluirPRs: true)   // a página vem com PRs; o fim é decidido pelo tamanho cru
+                return ComposioPaging.Page(items: crus.filter { !$0.pr }, hasMore: crus.count == req.pageSize, consumed: crus.count)
+            } catch let e as NSError where e.domain == "V2" && e.code == 3 {
+                return ComposioPaging.Page(items: [], hasMore: true, truncated: true)
+            }
+        }
     }
     static func epoch(_ d: Date) -> String { String(Int(d.timeIntervalSince1970)) }
     static func linha(_ m: Msg) -> String { Gmail.linha(Gmail.Msg(remetente: m.remetente, assunto: m.assunto, data: m.data, naoLida: m.naoLida)) }

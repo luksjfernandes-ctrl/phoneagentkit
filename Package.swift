@@ -14,6 +14,7 @@ let package = Package(
         .executableTarget(name: "HelloAgentCLI", dependencies: ["PhoneAgentKit"],
                           swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(name: "PhoneAgentKitTests", dependencies: ["PhoneAgentKit"],
+                    resources: [.copy("Resources")],
                     swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

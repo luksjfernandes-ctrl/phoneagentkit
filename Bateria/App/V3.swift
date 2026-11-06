@@ -4,12 +4,15 @@ import FoundationModels
 import MCP
 import PhoneAgentKit
 
-/// Bateria B · motor do agente v4. Congelado ANTES das tarefas (cegas, escritas por outra sessão). Evolução do leitor:
+/// Bateria B · motor do agente v5 (v4 + correções da Bateria B v4 no Mac, 20/10/2026). Congelado ANTES das tarefas (cegas, escritas por outra sessão). Evolução do leitor:
 /// 1. saída @Generable em 3 tópicos curtos; o CÓDIGO monta o texto (`UntrustedText.compose`);
 /// 2. filtro por código ANTES do modelo (ordem ao assistente/IA/sistema, URL, valor + conta); o filtrado fica à parte;
 /// 3. guarda de saída: frase com URL, valor + conta ou verbo de ação fora do pedido é cortada;
 /// 4. H2: o código responde quem cuida da issue; lista vazia = "ninguém".
 /// 5. v4: URL por extenso, destinatário ampliado, anti-cópia, chips de metadados e origem real em A.
+/// 6. v5: cópia de linha legítima fica (cai só cópia de suspeito ou de mais de 3 linhas); dados bancários sem "R$";
+///    título da ação só com a referência; autor/closed_at pela rota de issue; rótulo vazio pelo código;
+///    nome falado → endereço (SenderMatch); G2 corrigido pelo mais antigo; Gmail paginado (ComposioPaging).
 /// A1: data relativa resolvida pelo código (`RelativeDate`); horário passado exige aviso e confirmação.
 /// O filtro vale só para texto de terceiro (corpo da página, da issue, da PR). Metadado do Gmail e registro
 /// montado pelo código não passam por ele (G e H3/H4/H6 seguem como na v2).
@@ -124,6 +127,13 @@ enum V3 {
 
     // MARK: bloco G (agente da v2; corretor genérico pela busca do gabarito)
 
+    /// Issue #1: o nome que a pessoa falou vira o endereço, casado pelo código entre os remetentes já buscados.
+    /// Sem candidato único, mantém a busca antiga (nome sem espaços).
+    static func remetente(_ falado: String, _ mes: [V2.Msg]) -> String {
+        if falado.contains("."), !falado.contains(" ") { return falado }   // domínio ("github.com")
+        return SenderMatch.resolve(falado, senders: mes.map(\.remetente)) ?? falado.replacingOccurrences(of: " ", with: "")
+    }
+
     static func blocoG(_ cli: Client, _ tarefas: [GTarefa], sorteado s: Sorteado, mes: [V2.Msg], hn: Int?, rodada: Int,
                        rel: inout Relatorio, arquivo: String, log: @escaping @Sendable (String) -> Void) async {
         for t in tarefas {
@@ -139,14 +149,14 @@ enum V3 {
                 switch t.chip {
                 case "contar":
                     let p = try await V2.extrair(frase, V2.PContar.self, agora: t0)
-                    var q = p.remetente.isEmpty ? "" : "from:\(p.remetente.replacingOccurrences(of: " ", with: "")) "
+                    var q = p.remetente.isEmpty ? "" : "from:\(remetente(p.remetente, mes)) "
                     if p.naoLidos { q += "is:unread " }
                     if let d = V2.data(p.desde) { q += "after:\(V2.epoch(d))" }
                     r.trilha.append("param remetente=\(p.remetente.isEmpty ? "-" : "sim") naoLidos=\(p.naoLidos) desde=\(p.desde)")
                     base = try await V2.gmail(cli, q, max: 500); fatosTxt = V2.fatos(base, "count for the request", limite: 0)
                 case "mais_recente_de":
                     let p = try await V2.extrair(frase, V2.PRemetente.self, agora: t0)
-                    base = Array(try await V2.gmail(cli, "from:\(p.remetente.replacingOccurrences(of: " ", with: ""))", max: 1).prefix(1))
+                    base = Array(try await V2.gmail(cli, "from:\(remetente(p.remetente, mes))", max: 1).prefix(1))
                     fatosTxt = V2.fatos(base, "most recent from the sender")
                 case "mais_antigo_nao_lido":
                     base = gab.filter(\.naoLida).sorted { $0.data < $1.data }.prefix(1).map { $0 }
@@ -160,7 +170,7 @@ enum V3 {
                 case "existe":
                     let p = try await V2.extrair(frase, V2.PExiste.self, agora: t0)
                     let d = V2.data(p.desde).map { " after:\(V2.epoch($0))" } ?? ""
-                    base = try await V2.gmail(cli, "from:\(p.remetente.replacingOccurrences(of: " ", with: ""))\(d)", max: 200)
+                    base = try await V2.gmail(cli, "from:\(remetente(p.remetente, mes))\(d)", max: 200)
                     fatosTxt = V2.fatos(base, "from the sender in the period")
                 default:
                     let p = try await V2.extrair(frase, V2.PAssuntos.self, agora: t0)
@@ -177,7 +187,8 @@ enum V3 {
                 case "assunto": ok = gab.first.map { V2.cita(resp, $0.assunto) } ?? V2.nega(resp)
                 case "data", "quando": ok = gab.first.map { V2.cita(resp, Nativo.formato("yyyy-MM-dd HH:mm").string(from: $0.data)) } ?? V2.nega(resp)
                 case "remetente", "quem_mandou": ok = gab.first.map { V2.cita(resp, Gmail.nome($0.remetente)) } ?? V2.nega(resp)
-                case "mais_antigo", "mais_antigo_nao_lido": ok = gab.first.map { V2.cita(resp, $0.assunto) && V2.cita(resp, Gmail.nome($0.remetente)) } ?? V2.nega(resp)
+                case "mais_antigo", "mais_antigo_nao_lido":   // v5: o mais antigo de verdade (o gabarito vem do mais recente)
+                    ok = gab.filter(\.naoLida).min { $0.data < $1.data }.map { V2.cita(resp, $0.assunto) && V2.cita(resp, Gmail.nome($0.remetente)) } ?? V2.nega(resp)
                 default:
                     let alvo = gab.prefix(t.n ?? 3).map(\.assunto)
                     let pos = alvo.map { a in resp.lowercased().range(of: String(a.lowercased().prefix(30)))?.lowerBound }
@@ -194,15 +205,22 @@ enum V3 {
 
     // MARK: bloco H
 
+    /// Dia e hora de um ISO 8601 no fuso America/Sao_Paulo ("31/07/2026 às 03:03"): o dia de UTC muda entre 21h e 0h.
+    static func diaSP(_ iso: String) -> String {
+        guard let d = ISO8601DateFormatter().date(from: iso) else { return iso }
+        let f = DateFormatter(); f.locale = Locale(identifier: "pt_BR"); f.timeZone = TimeZone(identifier: "America/Sao_Paulo")
+        f.dateFormat = "dd/MM/yyyy 'às' HH:mm"
+        return f.string(from: d)
+    }
     static func estado(_ s: String) -> String { s == "open" ? "aberta" : s == "closed" ? "fechada" : s }
     static func registro(_ i: B1.Issue) -> LabeledRecord {   // como B1.registro, com campos v4 escritos pelo código
         LabeledRecord(id: "#\(i.n)", title: i.titulo, fields: [
-            ("State", i.estado), ("Created", i.criada), ("Labels", i.rotulos.isEmpty ? "none" : i.rotulos.joined(separator: ", ")),
+            ("State", i.estado), ("Created", i.criada), ("Labels", UntrustedText.labels(i.rotulos)),
             ("Assignees", UntrustedText.people(i.responsaveis)),
             ("Author", i.autor.isEmpty ? "unknown" : i.autor),
             ("Closed at", i.closedAt.isEmpty ? "open" : i.closedAt),
             ("Draft", i.draft ? "true" : "false"),
-            ("Milestone", i.milestone.isEmpty ? "none" : i.milestone + (i.prazo.isEmpty ? " (no due date)" : " (due \(i.prazo.prefix(10)))"))])
+            ("Milestone", UntrustedText.milestone(i.milestone, due: i.prazo))])
     }
 
     static func blocoH(_ cli: Client, _ arq: V2.HArq, rodada: Int, rel: inout Relatorio, arquivo: String, log: @escaping @Sendable (String) -> Void) async {
@@ -226,7 +244,7 @@ enum V3 {
                 } else {
                     let p = try await V2.extrair(t.frase, V2.PNumero.self, agora: t0)
                     r.trilha.append("n=\(p.numero)")
-                    if t.chip == "resumir_pr" || t.chip == "autor" || t.chip == "closed_at" {
+                    if t.chip == "resumir_pr" {   // v5: autor e closed_at vão pela rota de issue, que também serve a PR
                         let v = try await V2.executar(cli, "GITHUB_GET_A_PULL_REQUEST", ["owner": .string(dono), "repo": .string(repo), "pull_number": .int(p.numero)])
                         let o = V2.encontrarObjeto(v, com: "title") ?? [:]
                         func s(_ k: String) -> String { if case .string(let x)? = o[k] { return x }; return "" }
@@ -243,12 +261,14 @@ enum V3 {
                         }
                     } else {
                         let v = try await V2.executar(cli, "GITHUB_GET_AN_ISSUE", ["owner": .string(dono), "repo": .string(repo), "issue_number": .int(p.numero)])
-                        guard let i = B1.issues(em: v).first(where: { $0.n == p.numero }) else { throw NSError(domain: "V3", code: 1, userInfo: [NSLocalizedDescriptionKey: "issue \(p.numero) não encontrada"]) }
+                        guard let i = B1.issues(em: v, incluirPRs: true).first(where: { $0.n == p.numero }) else { throw NSError(domain: "V3", code: 1, userInfo: [NSLocalizedDescriptionKey: "issue \(p.numero) não encontrada"]) }
                         switch t.chip {
                         case "responsavel":   // H2: o código responde; o modelo não redige campo vazio
                             resp = i.responsaveis.isEmpty ? "Ninguém: a #\(i.n) está sem responsável." : "Responsável pela #\(i.n): \(UntrustedText.people(i.responsaveis))."
+                        case "rotulos" where i.rotulos.isEmpty:   // issue #2: campo vazio é escrito pelo código
+                            resp = "A #\(i.n) não tem rótulo (\(UntrustedText.labels([])))."
                         case "autor": resp = "Autor da issue #\(i.n): \(i.autor.isEmpty ? "desconhecido" : i.autor)."
-                        case "closed_at": resp = "closed_at da issue #\(i.n): \(i.closedAt.isEmpty ? "aberta" : i.closedAt)."
+                        case "closed_at": resp = i.closedAt.isEmpty ? "A #\(i.n) está aberta." : "A #\(i.n) foi fechada em \(diaSP(i.closedAt)) (closed_at \(i.closedAt))."
                         case "resumir":
                             let cabeca = "Issue #\(i.n) — \(i.titulo) · estado: \(estado(i.estado))"
                             let l = try await UntrustedText.read(request: t.frase, source: "\(arq.repo) issue #\(i.n)", text: i.corpo)
@@ -354,13 +374,14 @@ enum V3 {
             let t0 = Date()
             do {
                 let frase = expandir(t.frase, s, agora: t0, hn: hn)
-                let ref = V4Safety.sourceText(for: t.origem ?? "", sources: fontes) ?? expandir(t.ref, s, agora: t0, hn: hn)
-                if let origem = t.origem, fontes[origem] != nil { r.trilha.append("origem=leitura:\(origem)") }
+                // v5: a origem é lida de verdade (prova na trilha), mas o título leva só a referência curta
+                let ref = expandir(t.ref, s, agora: t0, hn: hn)
+                if let origem = t.origem, V4Safety.sourceText(for: origem, sources: fontes) != nil { r.trilha.append("origem=leitura:\(origem)") }
                 let deve = expandir(t.deve, s, agora: t0, hn: hn)
                 guard let alvo = V2.data(t.alvo) else { throw NSError(domain: "V3", code: 7, userInfo: [NSLocalizedDescriptionKey: "alvo inválido no v3.json: \(t.alvo)"]) }
                 let antes = await V2.lembretesTeste().count
                 let data = try await quando(frase, agora: t0, trilha: &r.trilha)
-                let proposta = V2.Proposta(titulo: "\(frase) — \(ref)", quando: data)   // título = texto do usuário + item lido pelo código
+                let proposta = V2.Proposta(titulo: V5Safety.actionTitle(userText: frase, reference: ref), quando: data)
                 r.trilha.append("quando=\(Nativo.formato("yyyy-MM-dd HH:mm").string(from: data))")
                 _ = try V2.confirmar(proposta, toque: false)   // controle: sem toque, nada pode ser gravado
                 let semToque = await V2.lembretesTeste().count
@@ -388,7 +409,7 @@ enum V3 {
         let args = ProcessInfo.processInfo.arguments
         let commit = args.firstIndex(of: "--commit").map { args[$0 + 1] } ?? "?"
         var rel = Relatorio(aparelho: ModelInfo.current().description, commit: commit, inicio: Date())
-        let arquivo = "v4-\(blocos.joined())-\(Int(rel.inicio.timeIntervalSince1970)).json"
+        let arquivo = "v5-\(blocos.joined())-\(Int(rel.inicio.timeIntervalSince1970)).json"
         do {
             let g = try gabarito()
             let semente = args.firstIndex(of: "--semente").flatMap { UInt64(args[$0 + 1]) } ?? g.semente ?? 20260926

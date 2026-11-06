@@ -1,0 +1,45 @@
+{
+ "successful": true,
+ "data": {
+  "results": [
+   {
+    "response": {
+     "successful": true,
+     "data": {
+      "issues": [
+       {
+        "html_url": "https://github.com/pola-rs/polars/issues/30108",
+        "number": 30108,
+        "state": "open",
+        "title": "Cannot compile polars using rust 1.99.1",
+        "user": {
+         "html_url": "https://github.com/AshrafIbrahim03",
+         "login": "AshrafIbrahim03"
+        }
+       },
+       {
+        "html_url": "https://github.com/pola-rs/polars/pull/30107",
+        "number": 30107,
+        "pull_request": {
+         "html_url": "https://github.com/pola-rs/polars/pull/30107"
+        },
+        "state": "open",
+        "title": "fix: Error on unknown table qualifier in correlated subquery",
+        "user": {
+         "html_url": "https://github.com/Nishieee",
+         "login": "Nishieee"
+        }
+       }
+      ]
+     }
+    },
+    "tool_slug": "GITHUB_LIST_REPOSITORY_ISSUES",
+    "index": 0
+   }
+  ],
+  "total_count": 1,
+  "success_count": 1,
+  "error_count": 0
+ },
+ "error": null
+}
